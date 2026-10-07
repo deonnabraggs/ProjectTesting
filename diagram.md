@@ -1,18 +1,18 @@
-# IPC Techniques
+# IPC TECHNIQUES
 
-## 1. POSIX Message Queues
+## 1. POSIX MESSAGE QUEUES
 
-The Multi-Process Simulator uses **POSIX Message Queues** as the main Inter-Process Communication (IPC) technique.
+The Multi-Process Simulator uses **POSIX Message Queues** as the primary Inter-Process Communication (IPC) technique.
 
-POSIX Message Queues allow the UI, Core and Logger processes to exchange messages through operating-system-managed queues.
+POSIX Message Queues allow the independent **UI, Core, and Logger processes** to exchange structured messages through operating-system-managed queues.
 
 ### Message Queues Used
 
 | Message Queue | Communication | Purpose |
 |---|---|---|
-| `/ui_to_core` | UI → Core | Sends commands and input values |
-| `/core_to_ui` | Core → UI | Sends results and status back to UI |
-| `/core_to_logger` | Core → Logger | Sends results and status to Logger |
+| `/ui_to_core` | UI → Core | Sends user commands and input values |
+| `/core_to_ui` | Core → UI | Sends operation results and status information back to the UI |
+| `/core_to_logger` | Core → Logger | Sends operation results and status information to the Logger |
 
 ### Message Structures
 
@@ -28,7 +28,7 @@ typedef struct
 } CoreMessage;
 ```
 
-The Core sends a `LogMessage` to the UI and Logger.
+The Core sends a `LogMessage` to the UI and Logger processes.
 
 ```c
 typedef struct
@@ -39,11 +39,11 @@ typedef struct
 } LogMessage;
 ```
 
-### POSIX IPC Functions Used
+### POSIX MESSAGE QUEUE FUNCTIONS USED
 
 | Function | Purpose |
 |---|---|
-| `mq_open()` | Creates or opens a message queue |
+| `mq_open()` | Creates or opens a POSIX message queue |
 | `mq_send()` | Sends a message through the queue |
 | `mq_receive()` | Receives a message from the queue |
 | `mq_close()` | Closes the message queue |
@@ -51,139 +51,112 @@ typedef struct
 
 ---
 
-## 2. IPC Communication Flow
+# 2. IPC COMMUNICATION FLOW
 
-### UI to Core
+The simulator uses three message queues for communication between the three processes.
 
-The UI accepts the user's command and input values and sends them to the Core using `/ui_to_core`.
+### UI → CORE
 
-```text
-UI Process
-     |
-     | CoreMessage
-     ↓
-/ui_to_core
-     |
-     | mq_receive()
-     ↓
-Core Process
-```
+The **UI Process** accepts the user's command and input values and sends them to the **Core Process** through `/ui_to_core` using `CoreMessage`.
 
-### Core to UI
+### CORE → UI
 
-After processing the command, the Core sends the result and status back to the UI using `/core_to_ui`.
+After executing the requested operation, the **Core Process** sends the result and status information back to the **UI Process** through `/core_to_ui` using `LogMessage`.
 
-```text
-Core Process
-     |
-     | LogMessage
-     ↓
-/core_to_ui
-     |
-     | mq_receive()
-     ↓
-UI Process
-```
+### CORE → LOGGER
 
-### Core to Logger
-
-The Core also sends the operation result to the Logger using `/core_to_logger`.
-
-```text
-Core Process
-     |
-     | LogMessage
-     ↓
-/core_to_logger
-     |
-     | mq_receive()
-     ↓
-Logger Process
-```
+The **Core Process** also sends the operation result and status information to the **Logger Process** through `/core_to_logger` using `LogMessage`.
 
 ---
 
-# Architecture Diagram
-
-The overall architecture of the Multi-Process Simulator is shown below.
+# 3. ARCHITECTURE DIAGRAM
 
 ```mermaid
-flowchart TD
+flowchart LR
 
-    UI["UI Process<br/>User Input"]
+    UI["🖥️ UI PROCESS<br/>User Input & Commands"]
 
-    MQ1["/ui_to_core<br/>POSIX Message Queue"]
+    Q1[["📨 /ui_to_core<br/>POSIX Message Queue"]]
 
-    CORE["Core Process"]
+    CORE["⚙️ CORE PROCESS<br/>Command Execution"]
 
-    CPU["CPU"]
-    MEMORY["Memory"]
-    STACK["Stack"]
-    QUEUE["Queue"]
+    CPU["CPU<br/>ADD • SUB • MUL • DIV"]
+    MEMORY["Memory<br/>STORE • LOAD"]
+    STACK["Stack<br/>PUSH • POP • PEEK"]
+    QUEUE["Queue<br/>ENQUEUE • DEQUEUE • PEEK"]
 
-    MQ2["/core_to_ui<br/>POSIX Message Queue"]
+    Q2[["📨 /core_to_ui<br/>POSIX Message Queue"]]
 
-    MQ3["/core_to_logger<br/>POSIX Message Queue"]
+    Q3[["📨 /core_to_logger<br/>POSIX Message Queue"]]
 
-    LOGGER["Logger Process"]
+    LOGGER["📝 LOGGER PROCESS<br/>Status & Result Logging"]
 
-    UI -->|"CoreMessage"| MQ1
-    MQ1 -->|"mq_receive()"| CORE
+    UI -->|"CoreMessage"| Q1
+    Q1 -->|"mq_receive()"| CORE
 
     CORE --> CPU
     CORE --> MEMORY
     CORE --> STACK
     CORE --> QUEUE
 
-    CORE -->|"LogMessage"| MQ2
-    MQ2 -->|"mq_receive()"| UI
+    CORE -->|"LogMessage"| Q2
+    Q2 -->|"mq_receive()"| UI
 
-    CORE -->|"LogMessage"| MQ3
-    MQ3 -->|"mq_receive()"| LOGGER
+    CORE -->|"LogMessage"| Q3
+    Q3 -->|"mq_receive()"| LOGGER
 ```
 
 ---
 
-## 3. Architecture Explanation
+# 4. ARCHITECTURE EXPLANATION
 
-The system consists of three independent processes:
+The simulator is divided into **three independent processes: UI, Core, and Logger**. Each process performs a specific responsibility and communicates with the other processes using POSIX Message Queues.
 
-1. **UI Process**
-   - Accepts commands and input from the user.
-   - Sends commands to the Core process.
+### 1. UI PROCESS
 
-2. **Core Process**
-   - Receives commands from the UI.
-   - Performs CPU operations such as ADD, SUBTRACT, MULTIPLY and DIVIDE.
-   - Handles Memory operations such as STORE and LOAD.
-   - Handles Stack operations such as PUSH, POP and PEEK.
-   - Handles Queue operations such as ENQUEUE, DEQUEUE and QUEUE PEEK.
-   - Sends results to the UI and Logger.
+- Accepts commands and input values from the user.
+- Creates a `CoreMessage`.
+- Sends the message to the Core Process through `/ui_to_core`.
+- Receives the operation result from the Core Process through `/core_to_ui`.
+- Displays the result and status to the user.
 
-3. **Logger Process**
-   - Receives results from the Core.
-   - Displays/logs the operation status and result.
+### 2. CORE PROCESS
 
-### Overall Communication
+- Acts as the main processing unit of the simulator.
+- Receives commands from the UI Process.
+- Executes CPU operations such as:
+  - ADD
+  - SUB
+  - MUL
+  - DIV
+- Handles Memory operations:
+  - STORE
+  - LOAD
+- Handles Stack operations:
+  - PUSH
+  - POP
+  - PEEK
+- Handles Queue operations:
+  - ENQUEUE
+  - DEQUEUE
+  - QUEUE PEEK
+- Creates a `LogMessage` containing the operation status and result.
+- Sends the result to the UI Process through `/core_to_ui`.
+- Sends the same result to the Logger Process through `/core_to_logger`.
 
-```text
-User
- ↓
-UI Process
- ↓
-/ui_to_core
- ↓
-Core Process
- ↓
-CPU / Memory / Stack / Queue
- ↓
- ┌───────────────────────┐
- ↓                       ↓
-/core_to_ui       /core_to_logger
- ↓                       ↓
-UI Process          Logger Process
-```
+### 3. LOGGER PROCESS
 
-**IPC Technique Used:** POSIX Message Queues  
-**Processes:** UI, Core and Logger  
-**Communication:** UI ↔ Core and Core → Logger
+- Receives `LogMessage` from the Core Process.
+- Displays the operation status and result.
+- Records the activity of the simulator.
+- Does not directly communicate with the UI Process.
+
+### 4. IPC CONNECTION
+
+The three processes communicate through separate POSIX Message Queues:
+
+- `/ui_to_core` → UI sends commands to Core.
+- `/core_to_ui` → Core sends results back to UI.
+- `/core_to_logger` → Core sends results to Logger.
+
+The **CPU, Memory, Stack, and Queue are internal components of the Core Process** and are not separate processes.
