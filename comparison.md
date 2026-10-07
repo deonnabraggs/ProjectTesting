@@ -40,13 +40,7 @@ Tested operations: ADD (12 + 13 = 25), SUBTRACT (23 - 12 = 11), MULTIPLY (12 × 
 
 The individual UI, Core and Logger elapsed times must not be added together because the processes can run concurrently and their elapsed times can overlap. The Standalone measurement also includes manual user input time, so the current measurements are not a controlled end-to-end comparison.
 
-## 4. IPC Overhead
 
-The Multi-Process Simulator introduces IPC overhead because the UI, Core and Logger processes communicate through POSIX Message Queues.
-
-IPC Overhead = Multi-Process End-to-End Time − Standalone End-to-End Time
-
-An exact numerical IPC overhead cannot be calculated from the current measurements because the Multi-Process Simulator was timed separately for UI, Core and Logger rather than with one common start and end point. Therefore, the three process times should not be summed.
 
 ## 5. Conclusion
 
