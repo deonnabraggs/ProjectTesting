@@ -53,7 +53,7 @@ typedef struct
 
 # 2. IPC COMMUNICATION FLOW
 
-The simulator uses three message queues for communication between the three processes.
+The simulator uses three POSIX Message Queues to provide communication between the three independent processes.
 
 ### UI → CORE
 
@@ -72,24 +72,24 @@ The **Core Process** also sends the operation result and status information to t
 # 3. ARCHITECTURE DIAGRAM
 
 ```mermaid
-flowchart LR
+flowchart TD
 
-    UI["🖥️ UI PROCESS<br/>User Input & Commands"]
+    UI["UI PROCESS<br/>User Input and Commands"]
 
-    Q1[["📨 /ui_to_core<br/>POSIX Message Queue"]]
+    Q1[["/ui_to_core<br/>POSIX Message Queue"]]
 
-    CORE["⚙️ CORE PROCESS<br/>Command Execution"]
+    CORE["CORE PROCESS<br/>Command Execution"]
 
     CPU["CPU<br/>ADD • SUB • MUL • DIV"]
-    MEMORY["Memory<br/>STORE • LOAD"]
-    STACK["Stack<br/>PUSH • POP • PEEK"]
-    QUEUE["Queue<br/>ENQUEUE • DEQUEUE • PEEK"]
+    MEMORY["MEMORY<br/>STORE • LOAD"]
+    STACK["STACK<br/>PUSH • POP • PEEK"]
+    QUEUE["QUEUE<br/>ENQUEUE • DEQUEUE • PEEK"]
 
-    Q2[["📨 /core_to_ui<br/>POSIX Message Queue"]]
+    Q2[["/core_to_ui<br/>POSIX Message Queue"]]
 
-    Q3[["📨 /core_to_logger<br/>POSIX Message Queue"]]
+    Q3[["/core_to_logger<br/>POSIX Message Queue"]]
 
-    LOGGER["📝 LOGGER PROCESS<br/>Status & Result Logging"]
+    LOGGER["LOGGER PROCESS<br/>Status and Result Logging"]
 
     UI -->|"CoreMessage"| Q1
     Q1 -->|"mq_receive()"| CORE
@@ -110,21 +110,21 @@ flowchart LR
 
 # 4. ARCHITECTURE EXPLANATION
 
-The simulator is divided into **three independent processes: UI, Core, and Logger**. Each process performs a specific responsibility and communicates with the other processes using POSIX Message Queues.
+The Multi-Process Simulator consists of **three independent processes: UI, Core, and Logger**. The processes communicate using POSIX Message Queues.
 
 ### 1. UI PROCESS
 
 - Accepts commands and input values from the user.
 - Creates a `CoreMessage`.
 - Sends the message to the Core Process through `/ui_to_core`.
-- Receives the operation result from the Core Process through `/core_to_ui`.
+- Receives the operation result through `/core_to_ui`.
 - Displays the result and status to the user.
 
 ### 2. CORE PROCESS
 
 - Acts as the main processing unit of the simulator.
 - Receives commands from the UI Process.
-- Executes CPU operations such as:
+- Performs CPU operations:
   - ADD
   - SUB
   - MUL
@@ -142,7 +142,7 @@ The simulator is divided into **three independent processes: UI, Core, and Logge
   - QUEUE PEEK
 - Creates a `LogMessage` containing the operation status and result.
 - Sends the result to the UI Process through `/core_to_ui`.
-- Sends the same result to the Logger Process through `/core_to_logger`.
+- Sends the result to the Logger Process through `/core_to_logger`.
 
 ### 3. LOGGER PROCESS
 
@@ -153,10 +153,10 @@ The simulator is divided into **three independent processes: UI, Core, and Logge
 
 ### 4. IPC CONNECTION
 
-The three processes communicate through separate POSIX Message Queues:
+The three POSIX Message Queues provide the following communication paths:
 
 - `/ui_to_core` → UI sends commands to Core.
 - `/core_to_ui` → Core sends results back to UI.
 - `/core_to_logger` → Core sends results to Logger.
 
-The **CPU, Memory, Stack, and Queue are internal components of the Core Process** and are not separate processes.
+The **CPU, Memory, Stack, and Queue are internal components of the Core Process**. They are not separate processes and therefore do not use IPC between them.
