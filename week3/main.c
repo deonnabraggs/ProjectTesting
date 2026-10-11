@@ -1,102 +1,156 @@
 #include <stdio.h>
+#include <string.h>
 #include "scheduler.h"
 
-int main(void)
+static int read_int(const char *prompt, int *value)
+{
+    int result;
+
+    printf("%s", prompt);
+    result = scanf("%d", value);
+
+    if (result != 1) {
+        int ch;
+
+        while ((ch = getchar()) != '\n' && ch != EOF) {
+        }
+
+        return 0;
+    }
+
+    return 1;
+}
+
+static void run_one(int choice, Process input[],
+                    int n, int quantum)
 {
     Process p[MAX_PROCESSES];
     Event events[MAX_EVENTS];
+    int count = 0;
+    int total_time = 0;
+    int i;
 
-    int n, i, choice, quantum = 2;
-    int event_count = 0;
+    memcpy(p, input, sizeof(Process) * (size_t)n);
 
-    printf("====================================\n");
-    printf("      CPU SCHEDULING SIMULATOR\n");
-    printf("====================================\n");
+    switch (choice) {
+        case 1:
+            fcfs(p, n, events, &count);
+            break;
 
-    printf("Enter number of processes (1-%d): ", MAX_PROCESSES);
-    if (scanf("%d", &n) != 1 || n < 1 || n > MAX_PROCESSES) {
+        case 2:
+            sjf(p, n, events, &count);
+            break;
+
+        case 3:
+            priority_nonpreemptive(p, n, events, &count);
+            break;
+
+        case 4:
+            srtf(p, n, events, &count);
+            break;
+
+        case 5:
+            priority_preemptive(p, n, events, &count);
+            break;
+
+        case 6:
+            round_robin(p, n, quantum, events, &count);
+            break;
+
+        default:
+            return;
+    }
+
+    if (count == 0) {
+        printf("\nScheduling failed. Check the process inputs.\n");
+        return;
+    }
+
+    display_gantt_chart(events, count);
+    display_results(p, n);
+    calculate_averages(p, n);
+
+    for (i = 0; i < count; i++) {
+        if (events[i].end_time > total_time)
+            total_time = events[i].end_time;
+    }
+
+    calculate_cpu_utilization(events, count, total_time);
+}
+
+int main(void)
+{
+    Process input[MAX_PROCESSES];
+    int n, quantum, i, choice = -1;
+
+    printf("========== CPU SCHEDULING SIMULATOR ==========\n");
+
+    if (!read_int("Enter number of processes (1-100): ", &n) ||
+        n < 1 || n > MAX_PROCESSES) {
         printf("Invalid number of processes.\n");
         return 1;
     }
 
     for (i = 0; i < n; i++) {
-        printf("\nProcess P%d\n", i + 1);
-        p[i].pid = i + 1;
+        int j;
 
-        printf("Arrival Time: ");
-        if (scanf("%d", &p[i].arrival_time) != 1 || p[i].arrival_time < 0) {
-            printf("Arrival time must be zero or greater.\n");
+        printf("\nProcess %d\n", i + 1);
+
+        if (!read_int("PID: ", &input[i].pid) ||
+            !read_int("Arrival time: ", &input[i].arrival_time) ||
+            !read_int("Burst time: ", &input[i].burst_time) ||
+            !read_int("Priority: ", &input[i].priority)) {
+            printf("Invalid input. Restart the program.\n");
             return 1;
         }
 
-        printf("Burst Time: ");
-        if (scanf("%d", &p[i].burst_time) != 1 || p[i].burst_time <= 0) {
-            printf("Burst time must be greater than zero.\n");
+        if (input[i].arrival_time < 0 ||
+            input[i].burst_time <= 0) {
+            printf("Arrival time must be >= 0 and burst time > 0.\n");
             return 1;
         }
 
-        printf("Priority: ");
-        if (scanf("%d", &p[i].priority) != 1) {
-            printf("Invalid priority.\n");
-            return 1;
+        for (j = 0; j < i; j++) {
+            if (input[j].pid == input[i].pid) {
+                printf("Each PID must be unique.\n");
+                return 1;
+            }
         }
     }
 
-    printf("\nEnter Time Quantum for Round Robin: ");
-    if (scanf("%d", &quantum) != 1 || quantum <= 0) {
-        quantum = 2;
-        printf("Invalid quantum. Defaulting to 2.\n");
-    }
-
-    printf("\nChoose Algorithm:\n");
-    printf("1. FCFS\n");
-    printf("2. SJF (Non-Preemptive)\n");
-    printf("3. Priority (Non-Preemptive)\n");
-    printf("4. SRTF (Preemptive SJF)\n");
-    printf("5. Priority (Preemptive)\n");
-    printf("6. Round Robin\n");
-    printf("7. Compare All Algorithms\n");
-    printf("Enter choice (1-7): ");
-    
-    if (scanf("%d", &choice) != 1) {
-        printf("Invalid choice.\n");
+    if (!read_int(
+            "\nEnter Round Robin time quantum (> 0): ",
+            &quantum) || quantum <= 0) {
+        printf("Time quantum must be greater than zero.\n");
         return 1;
     }
 
-    switch (choice) {
-        case 1:
-            fcfs(p, n, events, &event_count);
-            break;
-        case 2:
-            sjf(p, n, events, &event_count);
-            break;
-        case 3:
-            priority_nonpreemptive(p, n, events, &event_count);
-            break;
-        case 4:
-            srtf(p, n, events, &event_count);
-            break;
-        case 5:
-            priority_preemptive(p, n, events, &event_count);
-            break;
-        case 6:
-            round_robin(p, n, quantum, events, &event_count);
-            break;
-        case 7:
-            compare_algorithms(p, n, quantum);
-            return 0;
-        default:
-            printf("Invalid selection.\n");
-            return 1;
+    while (choice != 0) {
+        printf("\nChoose Algorithm:\n");
+        printf("1. FCFS\n");
+        printf("2. SJF (Non-Preemptive)\n");
+        printf("3. Priority (Non-Preemptive)\n");
+        printf("4. SRTF (Preemptive SJF)\n");
+        printf("5. Priority (Preemptive)\n");
+        printf("6. Round Robin\n");
+        printf("7. Compare All Algorithms\n");
+        printf("0. Exit\n");
+
+        if (!read_int("Enter choice (0-7): ", &choice)) {
+            printf("Invalid menu input.\n");
+            choice = -1;
+            continue;
+        }
+
+        if (choice >= 1 && choice <= 6) {
+            run_one(choice, input, n, quantum);
+        } else if (choice == 7) {
+            compare_algorithms(input, n, quantum);
+        } else if (choice != 0) {
+            printf("Choose a number from 0 to 7.\n");
+        }
     }
 
-    display_gantt_chart(events, event_count);
-    display_results(p, n);
-    calculate_averages(p, n);
-    
-    if (event_count > 0) {
-        calculate_cpu_utilization(events, event_count, events[event_count - 1].end_time);
-    }
-
+    printf("Exiting simulator.\n");
     return 0;
 }
