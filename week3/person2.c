@@ -1,44 +1,37 @@
-#include <stddef.h>
 #include <limits.h>
 #include "scheduler.h"
-
-static void reset_results(Process p[], int n,
-                          Event events[], int *event_count)
-{
-    int i;
-
-    *event_count = 0;
-
-    for (i = 0; i < n; i++) {
-        p[i].waiting_time = 0;
-        p[i].turnaround_time = 0;
-        p[i].response_time = 0;
-        p[i].completion_time = 0;
-    }
-
-    (void)events;
-}
 
 static int valid_args(Process p[], int n,
                       Event events[], int *event_count)
 {
-    if (event_count == NULL)
+    int i;
+
+    if (event_count == 0)
         return 0;
 
     *event_count = 0;
 
-    if (p == NULL || events == NULL ||
+    if (p == 0 || events == 0 ||
         n <= 0 || n > MAX_PROCESSES)
         return 0;
 
-    reset_results(p, n, events, event_count);
+    for (i = 0; i < n; i++) {
+        if (p[i].arrival_time < 0 || p[i].burst_time <= 0)
+            return 0;
+
+        p[i].waiting_time = 0;
+        p[i].turnaround_time = 0;
+        p[i].response_time = -1;
+        p[i].completion_time = 0;
+    }
+
     return 1;
 }
 
 static void record_event(Event events[], int *count,
                          int pid, int start, int end)
 {
-    if (events == NULL || count == NULL || end <= start)
+    if (events == 0 || count == 0 || end <= start)
         return;
 
     if (*count > 0 &&
@@ -56,32 +49,26 @@ static void record_event(Event events[], int *count,
 static void finish_process(Process p[], int i, int time)
 {
     p[i].completion_time = time;
-    p[i].turnaround_time = time - p[i].arrival_time;
+
+    p[i].turnaround_time =
+        time - p[i].arrival_time;
+
     p[i].waiting_time =
         p[i].turnaround_time - p[i].burst_time;
-
-    if (p[i].waiting_time < 0)
-        p[i].waiting_time = 0;
 }
 
-/* SRTF: Shortest Remaining Time First */
-void srtf(Process p[], int n, Event events[], int *event_count)
+/* Shortest Remaining Time First */
+void srtf(Process p[], int n,
+          Event events[], int *event_count)
 {
     int rem[MAX_PROCESSES];
-    int responded[MAX_PROCESSES] = {0};
     int i, done = 0, time = 0, running = -1;
 
     if (!valid_args(p, n, events, event_count))
         return;
 
-    for (i = 0; i < n; i++) {
+    for (i = 0; i < n; i++)
         rem[i] = p[i].burst_time;
-
-        if (rem[i] <= 0) {
-            p[i].completion_time = p[i].arrival_time;
-            done++;
-        }
-    }
 
     while (done < n) {
         int best = -1;
@@ -101,7 +88,8 @@ void srtf(Process p[], int n, Event events[], int *event_count)
             int next = INT_MAX;
 
             for (i = 0; i < n; i++) {
-                if (rem[i] > 0 && p[i].arrival_time < next)
+                if (rem[i] > 0 &&
+                    p[i].arrival_time < next)
                     next = p[i].arrival_time;
             }
 
@@ -118,19 +106,16 @@ void srtf(Process p[], int n, Event events[], int *event_count)
             continue;
         }
 
-        running = best;
-
-        if (!responded[best]) {
+        if (p[best].response_time == -1)
             p[best].response_time =
                 time - p[best].arrival_time;
-            responded[best] = 1;
-        }
 
         record_event(events, event_count,
                      p[best].pid, time, time + 1);
 
         rem[best]--;
         time++;
+        running = best;
 
         if (rem[best] == 0) {
             finish_process(p, best, time);
@@ -140,25 +125,18 @@ void srtf(Process p[], int n, Event events[], int *event_count)
     }
 }
 
-/* Priority Preemptive */
+/* Preemptive Priority Scheduling */
 void priority_preemptive(
     Process p[], int n, Event events[], int *event_count)
 {
     int rem[MAX_PROCESSES];
-    int responded[MAX_PROCESSES] = {0};
     int i, done = 0, time = 0, running = -1;
 
     if (!valid_args(p, n, events, event_count))
         return;
 
-    for (i = 0; i < n; i++) {
+    for (i = 0; i < n; i++)
         rem[i] = p[i].burst_time;
-
-        if (rem[i] <= 0) {
-            p[i].completion_time = p[i].arrival_time;
-            done++;
-        }
-    }
 
     while (done < n) {
         int best = -1;
@@ -179,7 +157,8 @@ void priority_preemptive(
             int next = INT_MAX;
 
             for (i = 0; i < n; i++) {
-                if (rem[i] > 0 && p[i].arrival_time < next)
+                if (rem[i] > 0 &&
+                    p[i].arrival_time < next)
                     next = p[i].arrival_time;
             }
 
@@ -196,19 +175,16 @@ void priority_preemptive(
             continue;
         }
 
-        running = best;
-
-        if (!responded[best]) {
+        if (p[best].response_time == -1)
             p[best].response_time =
                 time - p[best].arrival_time;
-            responded[best] = 1;
-        }
 
         record_event(events, event_count,
                      p[best].pid, time, time + 1);
 
         rem[best]--;
         time++;
+        running = best;
 
         if (rem[best] == 0) {
             finish_process(p, best, time);
@@ -218,15 +194,14 @@ void priority_preemptive(
     }
 }
 
-/* Round Robin */
+/* Round Robin Scheduling */
 void round_robin(Process p[], int n, int quantum,
                  Event events[], int *event_count)
 {
     int rem[MAX_PROCESSES];
-    int responded[MAX_PROCESSES] = {0};
     int queued[MAX_PROCESSES] = {0};
-
     int queue[MAX_PROCESSES + 1];
+
     int head = 0, tail = 0, qcount = 0;
     int i, done = 0, time = 0;
 
@@ -236,16 +211,11 @@ void round_robin(Process p[], int n, int quantum,
     if (quantum <= 0)
         return;
 
-    for (i = 0; i < n; i++) {
+    for (i = 0; i < n; i++)
         rem[i] = p[i].burst_time;
 
-        if (rem[i] <= 0) {
-            p[i].completion_time = p[i].arrival_time;
-            done++;
-        }
-    }
-
     while (done < n) {
+        /* Add processes that have already arrived. */
         for (i = 0; i < n; i++) {
             if (rem[i] > 0 && !queued[i] &&
                 p[i].arrival_time <= time) {
@@ -260,7 +230,8 @@ void round_robin(Process p[], int n, int quantum,
             int next = INT_MAX;
 
             for (i = 0; i < n; i++) {
-                if (rem[i] > 0 && p[i].arrival_time < next)
+                if (rem[i] > 0 &&
+                    p[i].arrival_time < next)
                     next = p[i].arrival_time;
             }
 
@@ -281,31 +252,33 @@ void round_robin(Process p[], int n, int quantum,
         qcount--;
         queued[i] = 0;
 
-        if (!responded[i]) {
+        if (p[i].response_time == -1)
             p[i].response_time =
                 time - p[i].arrival_time;
-            responded[i] = 1;
-        }
 
         {
-            int slice = rem[i] < quantum ? rem[i] : quantum;
+            int slice = rem[i] < quantum ?
+                        rem[i] : quantum;
+            int start = time;
             int end = time + slice;
+            int t, j;
 
             record_event(events, event_count,
-                         p[i].pid, time, end);
+                         p[i].pid, start, end);
 
             rem[i] -= slice;
             time = end;
 
-            {
-                int j;
-
+            /* Enqueue arrivals in chronological order. */
+            for (t = start + 1; t <= time; t++) {
                 for (j = 0; j < n; j++) {
-                    if (j != i && rem[j] > 0 &&
+                    if (rem[j] > 0 &&
                         !queued[j] &&
-                        p[j].arrival_time <= time) {
+                        j != i &&
+                        p[j].arrival_time == t) {
                         queue[tail] = j;
-                        tail = (tail + 1) % (MAX_PROCESSES + 1);
+                        tail = (tail + 1) %
+                               (MAX_PROCESSES + 1);
                         qcount++;
                         queued[j] = 1;
                     }
@@ -316,6 +289,7 @@ void round_robin(Process p[], int n, int quantum,
                 finish_process(p, i, time);
                 done++;
             } else {
+                /* An unfinished process goes to the queue's end. */
                 queue[tail] = i;
                 tail = (tail + 1) % (MAX_PROCESSES + 1);
                 qcount++;
