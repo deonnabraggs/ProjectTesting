@@ -2,9 +2,13 @@
 #include <string.h>
 #include "scheduler.h"
 
+/* ============================================================
+   Display Gantt Chart
+   ============================================================ */
 void display_gantt_chart(Event events[], int event_count)
 {
     int i;
+    int width = 7;
 
     if (events == NULL || event_count <= 0) {
         printf("\nNo events to display.\n");
@@ -13,25 +17,29 @@ void display_gantt_chart(Event events[], int event_count)
 
     printf("\n========== GANTT CHART ==========\n\n");
 
+    /* Display process blocks */
     for (i = 0; i < event_count; i++) {
         if (events[i].pid == -1)
-            printf("| IDLE ");
+            printf("| %-5s ", "IDLE");
         else
-            printf("| P%d ", events[i].pid);
+            printf("| P%-4d ", events[i].pid);
     }
     printf("|\n");
 
-    if (events[0].start_time == 0)
-        printf("0");
-    else
-        printf("%d", events[0].start_time);
+    /* Display time labels with fixed-width spacing */
+    printf("%-*d", width, events[0].start_time);
 
-    for (i = 0; i < event_count; i++)
-        printf("\t%d", events[i].end_time);
+    for (i = 0; i < event_count; i++) {
+        printf("%*d", width + 1, events[i].end_time);
+    }
 
     printf("\n");
 }
 
+
+/* ============================================================
+   Display Process Results
+   ============================================================ */
 void display_results(Process p[], int n)
 {
     int i;
@@ -55,6 +63,10 @@ void display_results(Process p[], int n)
     }
 }
 
+
+/* ============================================================
+   Calculate Average Waiting, Turnaround and Response Times
+   ============================================================ */
 void calculate_averages(Process p[], int n)
 {
     int i;
@@ -77,6 +89,10 @@ void calculate_averages(Process p[], int n)
     printf("Average Response Time   : %.2f\n", rt / n);
 }
 
+
+/* ============================================================
+   Calculate CPU Utilization
+   ============================================================ */
 void calculate_cpu_utilization(
     Event events[], int event_count, int total_time)
 {
@@ -102,9 +118,16 @@ void calculate_cpu_utilization(
     printf("CPU Idle Time  : %d\n", idle);
     printf("Total Time     : %d\n", total_time);
     printf("CPU Utilization: %.2f%%\n",
-           (double)busy / total_time * 100.0);
+           (double) busy / total_time * 100.0);
 }
 
+
+/* ============================================================
+   Helper: Calculate Average Metrics
+   metric 0 = Waiting Time
+   metric 1 = Turnaround Time
+   metric 2 = Response Time
+   ============================================================ */
 static double average_metric(Process p[], int n, int metric)
 {
     int i;
@@ -122,6 +145,10 @@ static double average_metric(Process p[], int n, int metric)
     return total / n;
 }
 
+
+/* ============================================================
+   Helper: Find Total Execution Time
+   ============================================================ */
 static int get_total_time(Event events[], int count)
 {
     int i, total = 0;
@@ -134,7 +161,12 @@ static int get_total_time(Event events[], int count)
     return total;
 }
 
-static double get_cpu_usage(Event events[], int count, int total_time)
+
+/* ============================================================
+   Helper: Calculate CPU Usage
+   ============================================================ */
+static double get_cpu_usage(
+    Event events[], int count, int total_time)
 {
     int i, busy = 0;
 
@@ -146,9 +178,13 @@ static double get_cpu_usage(Event events[], int count, int total_time)
             busy += events[i].end_time - events[i].start_time;
     }
 
-    return (double)busy / total_time * 100.0;
+    return (double) busy / total_time * 100.0;
 }
 
+
+/* ============================================================
+   Compare All Scheduling Algorithms
+   ============================================================ */
 void compare_algorithms(Process input[], int n, int quantum)
 {
     Process p[6][MAX_PROCESSES];
@@ -176,9 +212,12 @@ void compare_algorithms(Process input[], int n, int quantum)
         return;
     }
 
-    for (i = 0; i < 6; i++)
+    /* Copy original input for each algorithm */
+    for (i = 0; i < 6; i++) {
         memcpy(p[i], input, sizeof(Process) * n);
+    }
 
+    /* Run all six algorithms */
     fcfs(p[0], n, events[0], &counts[0]);
     sjf(p[1], n, events[1], &counts[1]);
     priority_nonpreemptive(p[2], n, events[2], &counts[2]);
