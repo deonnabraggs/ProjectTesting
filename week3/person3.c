@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <string.h>
 #include "scheduler.h"
@@ -14,21 +13,23 @@ void display_gantt_chart(Event events[], int event_count)
 
     printf("\n========== GANTT CHART ==========\n\n");
 
+    /* Print process blocks */
+    printf("|");
     for (i = 0; i < event_count; i++) {
         if (events[i].pid == -1)
-            printf("| IDLE ");
+            printf(" IDLE |");
         else
-            printf("| P%d ", events[i].pid);
+            printf(" P%d |", events[i].pid);
     }
-    printf("|\n");
 
-    if (events[0].start_time == 0)
-        printf("0");
-    else
-        printf("%d", events[0].start_time);
+    printf("\n");
 
-    for (i = 0; i < event_count; i++)
-        printf("\t%d", events[i].end_time);
+    /* Print time values */
+    printf("%-4d", events[0].start_time);
+
+    for (i = 0; i < event_count; i++) {
+        printf("%-5d", events[i].end_time);
+    }
 
     printf("\n");
 }
@@ -37,14 +38,19 @@ void display_results(Process p[], int n)
 {
     int i;
 
+    if (p == 0 || n <= 0) {
+        printf("\nNo process results available.\n");
+        return;
+    }
+
     printf("\n================ PROCESS RESULTS ================\n");
 
-    printf("%-6s %-5s %-5s %-8s %-6s %-7s %-6s %-6s\n",
+    printf("%-6s %-5s %-5s %-9s %-6s %-7s %-6s %-6s\n",
            "PID", "AT", "BT", "Priority",
            "CT", "TAT", "WT", "RT");
 
     for (i = 0; i < n; i++) {
-        printf("%-6d %-5d %-5d %-8d %-6d %-7d %-6d %-6d\n",
+        printf("%-6d %-5d %-5d %-9d %-6d %-7d %-6d %-6d\n",
                p[i].pid,
                p[i].arrival_time,
                p[i].burst_time,
@@ -59,9 +65,9 @@ void display_results(Process p[], int n)
 void calculate_averages(Process p[], int n)
 {
     int i;
-    double wt = 0, tat = 0, rt = 0;
+    double wt = 0.0, tat = 0.0, rt = 0.0;
 
-    if (p == NULL || n <= 0) {
+    if (p == 0 || n <= 0) {
         printf("\nNo processes available.\n");
         return;
     }
@@ -83,7 +89,7 @@ void calculate_cpu_utilization(
 {
     int i, busy = 0, idle = 0;
 
-    if (events == NULL || event_count <= 0 || total_time <= 0) {
+    if (events == 0 || event_count <= 0 || total_time <= 0) {
         printf("\nCPU utilization cannot be calculated.\n");
         return;
     }
@@ -109,7 +115,7 @@ void calculate_cpu_utilization(
 static double average_metric(Process p[], int n, int metric)
 {
     int i;
-    double total = 0;
+    double total = 0.0;
 
     for (i = 0; i < n; i++) {
         if (metric == 0)
@@ -135,7 +141,8 @@ static int get_total_time(Event events[], int count)
     return total;
 }
 
-static double get_cpu_usage(Event events[], int count, int total_time)
+static double get_cpu_usage(
+    Event events[], int count, int total_time)
 {
     int i, busy = 0;
 
@@ -144,7 +151,8 @@ static double get_cpu_usage(Event events[], int count, int total_time)
 
     for (i = 0; i < count; i++) {
         if (events[i].pid != -1)
-            busy += events[i].end_time - events[i].start_time;
+            busy += events[i].end_time -
+                    events[i].start_time;
     }
 
     return (double)busy / total_time * 100.0;
@@ -167,18 +175,14 @@ void compare_algorithms(Process input[], int n, int quantum)
         "Round Robin"
     };
 
-    if (input == NULL || n <= 0 || n > MAX_PROCESSES) {
-        printf("\nInvalid process data.\n");
-        return;
-    }
-
-    if (quantum <= 0) {
-        printf("\nTime quantum must be greater than zero.\n");
+    if (input == 0 || n <= 0 || n > MAX_PROCESSES ||
+        quantum <= 0) {
+        printf("\nInvalid process data or time quantum.\n");
         return;
     }
 
     for (i = 0; i < 6; i++)
-        memcpy(p[i], input, sizeof(Process) * n);
+        memcpy(p[i], input, sizeof(Process) * (size_t)n);
 
     fcfs(p[0], n, events[0], &counts[0]);
     sjf(p[1], n, events[1], &counts[1]);
