@@ -1,263 +1,336 @@
+
 #include <stdio.h>
 #include <string.h>
 #include "scheduler.h"
 
-/* ============================================================
-   Display Gantt Chart
-   ============================================================ */
+/* =========================================================
+   PERSON 3: GANTT CHART, RESULTS, AVERAGES AND COMPARISON
+   ========================================================= */
+
+
+/* ---------------------------------------------------------
+   1. DISPLAY GANTT CHART
+   --------------------------------------------------------- */
 void display_gantt_chart(Event events[], int event_count)
 {
     int i;
-    char label[20];
 
-    if (events == NULL || event_count <= 0) {
-        printf("\nNo events to display.\n");
+    if (events == NULL || event_count <= 0)
+    {
+        printf("\nNo Gantt chart events available.\n");
         return;
     }
 
-    printf("\n========== GANTT CHART ==========\n\n");
+    printf("\n========== GANTT CHART ==========\n");
 
-    /* Print top border */
-    for (i = 0; i < event_count; i++) {
-        printf("+--------");
-    }
-    printf("+\n");
+    /* Display process blocks */
+    printf("|");
 
-    /* Print process names */
-    for (i = 0; i < event_count; i++) {
-        if (events[i].pid == -1) {
-            snprintf(label, sizeof(label), "IDLE");
-        } else {
-            snprintf(label, sizeof(label), "P%d",
-                     events[i].pid);
-        }
-
-        printf("| %-6s ", label);
-    }
-    printf("|\n");
-
-    /* Print bottom border */
-    for (i = 0; i < event_count; i++) {
-        printf("+--------");
-    }
-    printf("+\n");
-
-    /* Print time boundaries */
-    printf("%-8d", events[0].start_time);
-
-    for (i = 0; i < event_count; i++) {
-        printf("%-8d", events[i].end_time);
+    for (i = 0; i < event_count; i++)
+    {
+        if (events[i].pid == -1)
+            printf(" IDLE |");
+        else
+            printf(" P%d |", events[i].pid);
     }
 
     printf("\n");
+
+    /* Display time boundaries */
+    printf("%d", events[0].start_time);
+
+    for (i = 0; i < event_count; i++)
+    {
+        printf("     %d", events[i].end_time);
+    }
+
+    printf("\n=================================\n");
 }
 
 
-/* ============================================================
-   Display Process Results
-   ============================================================ */
+/* ---------------------------------------------------------
+   2. DISPLAY INDIVIDUAL PROCESS RESULTS
+   --------------------------------------------------------- */
 void display_results(Process p[], int n)
 {
     int i;
 
+    if (p == NULL || n <= 0)
+    {
+        printf("\nNo process results available.\n");
+        return;
+    }
+
     printf("\n================ PROCESS RESULTS ================\n");
 
-    printf("%-6s %-5s %-5s %-8s %-6s %-7s %-6s %-6s\n",
-           "PID", "AT", "BT", "Priority",
-           "CT", "TAT", "WT", "RT");
+    printf("%-8s %-8s %-8s %-8s %-8s %-8s %-8s\n",
+           "PID", "AT", "BT", "CT", "TAT", "WT", "RT");
 
-    for (i = 0; i < n; i++) {
-        printf("%-6d %-5d %-5d %-8d %-6d %-7d %-6d %-6d\n",
+    printf("-------------------------------------------------\n");
+
+    for (i = 0; i < n; i++)
+    {
+        printf("%-8d %-8d %-8d %-8d %-8d %-8d %-8d\n",
                p[i].pid,
                p[i].arrival_time,
                p[i].burst_time,
-               p[i].priority,
                p[i].completion_time,
                p[i].turnaround_time,
                p[i].waiting_time,
                p[i].response_time);
     }
+
+    printf("=================================================\n");
 }
 
 
-/* ============================================================
-   Calculate Average Waiting, Turnaround and Response Times
-   ============================================================ */
+/* ---------------------------------------------------------
+   3. CALCULATE AND DISPLAY AVERAGES
+   --------------------------------------------------------- */
 void calculate_averages(Process p[], int n)
 {
     int i;
-    double wt = 0, tat = 0, rt = 0;
+    double total_wt = 0.0;
+    double total_tat = 0.0;
+    double total_rt = 0.0;
 
-    if (p == NULL || n <= 0) {
-        printf("\nNo processes available.\n");
+    if (p == NULL || n <= 0)
+    {
+        printf("\nCannot calculate averages: no processes.\n");
         return;
     }
 
-    for (i = 0; i < n; i++) {
-        wt += p[i].waiting_time;
-        tat += p[i].turnaround_time;
-        rt += p[i].response_time;
+    for (i = 0; i < n; i++)
+    {
+        total_wt += p[i].waiting_time;
+        total_tat += p[i].turnaround_time;
+        total_rt += p[i].response_time;
     }
 
-    printf("\n========== AVERAGES ==========\n");
-    printf("Average Waiting Time    : %.2f\n", wt / n);
-    printf("Average Turnaround Time : %.2f\n", tat / n);
-    printf("Average Response Time   : %.2f\n", rt / n);
+    printf("\n========== AVERAGE RESULTS ==========\n");
+
+    printf("Average Waiting Time    : %.2f\n",
+           total_wt / n);
+
+    printf("Average Turnaround Time : %.2f\n",
+           total_tat / n);
+
+    printf("Average Response Time   : %.2f\n",
+           total_rt / n);
+
+    printf("=====================================\n");
 }
 
 
-/* ============================================================
-   Calculate CPU Utilization
-   ============================================================ */
-void calculate_cpu_utilization(
-    Event events[], int event_count, int total_time)
-{
-    int i, busy = 0, idle = 0;
-
-    if (events == NULL || event_count <= 0 || total_time <= 0) {
-        printf("\nCPU utilization cannot be calculated.\n");
-        return;
-    }
-
-    for (i = 0; i < event_count; i++) {
-        int duration =
-            events[i].end_time - events[i].start_time;
-
-        if (events[i].pid == -1)
-            idle += duration;
-        else
-            busy += duration;
-    }
-
-    printf("\n========== CPU UTILIZATION ==========\n");
-    printf("CPU Busy Time  : %d\n", busy);
-    printf("CPU Idle Time  : %d\n", idle);
-    printf("Total Time     : %d\n", total_time);
-    printf("CPU Utilization: %.2f%%\n",
-           (double) busy / total_time * 100.0);
-}
-
-
-/* ============================================================
-   Helper: Calculate Average Metrics
-   metric 0 = Waiting Time
-   metric 1 = Turnaround Time
-   metric 2 = Response Time
-   ============================================================ */
-static double average_metric(Process p[], int n, int metric)
+/* ---------------------------------------------------------
+   4. CALCULATE TOTAL ELAPSED TIME
+   --------------------------------------------------------- */
+static int get_total_time(Event events[], int event_count)
 {
     int i;
-    double total = 0;
+    int first_time;
+    int last_time;
 
-    for (i = 0; i < n; i++) {
-        if (metric == 0)
-            total += p[i].waiting_time;
-        else if (metric == 1)
-            total += p[i].turnaround_time;
-        else
-            total += p[i].response_time;
+    if (events == NULL || event_count <= 0)
+        return 0;
+
+    first_time = events[0].start_time;
+    last_time = events[0].end_time;
+
+    for (i = 0; i < event_count; i++)
+    {
+        if (events[i].start_time < first_time)
+            first_time = events[i].start_time;
+
+        if (events[i].end_time > last_time)
+            last_time = events[i].end_time;
     }
 
-    return total / n;
+    if (last_time <= first_time)
+        return 0;
+
+    return last_time - first_time;
 }
 
 
-/* ============================================================
-   Helper: Find Total Execution Time
-   ============================================================ */
-static int get_total_time(Event events[], int count)
+/* ---------------------------------------------------------
+   5. CALCULATE CPU UTILIZATION
+   --------------------------------------------------------- */
+static double get_cpu_usage(Event events[], int event_count,
+                            int total_time)
 {
-    int i, total = 0;
+    int i;
+    int busy_time = 0;
 
-    for (i = 0; i < count; i++) {
-        if (events[i].end_time > total)
-            total = events[i].end_time;
-    }
-
-    return total;
-}
-
-
-/* ============================================================
-   Helper: Calculate CPU Usage
-   ============================================================ */
-static double get_cpu_usage(
-    Event events[], int count, int total_time)
-{
-    int i, busy = 0;
-
-    if (total_time <= 0)
+    if (events == NULL || event_count <= 0 || total_time <= 0)
         return 0.0;
 
-    for (i = 0; i < count; i++) {
-        if (events[i].pid != -1) {
-            busy += events[i].end_time - events[i].start_time;
+    for (i = 0; i < event_count; i++)
+    {
+        if (events[i].pid != -1 &&
+            events[i].end_time > events[i].start_time)
+        {
+            busy_time += events[i].end_time - events[i].start_time;
         }
     }
 
-    return (double) busy / total_time * 100.0;
+    return ((double) busy_time / total_time) * 100.0;
 }
 
 
-/* ============================================================
-   Compare All Scheduling Algorithms
-   ============================================================ */
-void compare_algorithms(Process input[], int n, int quantum)
+/* ---------------------------------------------------------
+   6. DISPLAY CPU UTILIZATION
+   --------------------------------------------------------- */
+void calculate_cpu_utilization(Event events[], int event_count,
+                               int total_time)
 {
-    Process p[6][MAX_PROCESSES];
-    Event events[6][MAX_EVENTS];
-    int counts[6] = {0};
-    int total_time[6];
-    int i;
+    double utilization;
 
-    const char *names[] = {
-        "FCFS",
-        "SJF Non-Preemptive",
-        "Priority Non-Preemptive",
-        "SRTF",
-        "Priority Preemptive",
-        "Round Robin"
-    };
-
-    if (input == NULL || n <= 0 || n > MAX_PROCESSES) {
-        printf("\nInvalid process data.\n");
+    if (events == NULL || event_count <= 0 || total_time <= 0)
+    {
+        printf("\nCPU Utilization: Cannot calculate.\n");
         return;
     }
 
-    if (quantum <= 0) {
+    utilization = get_cpu_usage(events, event_count, total_time);
+
+    printf("\nCPU Utilization: %.2f%%\n", utilization);
+}
+
+
+/* ---------------------------------------------------------
+   7. HELPER: DISPLAY ONE ALGORITHM'S COMPARISON RESULTS
+   --------------------------------------------------------- */
+static void report_one(const char *name,
+                       Process p[],
+                       int n,
+                       Event events[],
+                       int event_count)
+{
+    int i;
+    double total_wt = 0.0;
+    double total_tat = 0.0;
+    double total_rt = 0.0;
+    double cpu_usage = 0.0;
+    int total_time;
+
+    for (i = 0; i < n; i++)
+    {
+        total_wt += p[i].waiting_time;
+        total_tat += p[i].turnaround_time;
+        total_rt += p[i].response_time;
+    }
+
+    total_time = get_total_time(events, event_count);
+
+    if (total_time > 0)
+        cpu_usage = get_cpu_usage(events, event_count, total_time);
+
+    printf("%-23s %-12.2f %-12.2f %-12.2f %-12.2f\n",
+           name,
+           total_wt / n,
+           total_tat / n,
+           total_rt / n,
+           cpu_usage);
+}
+
+
+/* ---------------------------------------------------------
+   8. COMPARE ALL SIX SCHEDULING ALGORITHMS
+   --------------------------------------------------------- */
+void compare_algorithms(Process input[], int n, int quantum)
+{
+    Process p_fcfs[MAX_PROCESSES];
+    Process p_sjf[MAX_PROCESSES];
+    Process p_priority[MAX_PROCESSES];
+    Process p_srtf[MAX_PROCESSES];
+    Process p_priority_pre[MAX_PROCESSES];
+    Process p_rr[MAX_PROCESSES];
+
+    Event e_fcfs[MAX_EVENTS];
+    Event e_sjf[MAX_EVENTS];
+    Event e_priority[MAX_EVENTS];
+    Event e_srtf[MAX_EVENTS];
+    Event e_priority_pre[MAX_EVENTS];
+    Event e_rr[MAX_EVENTS];
+
+    int c_fcfs = 0;
+    int c_sjf = 0;
+    int c_priority = 0;
+    int c_srtf = 0;
+    int c_priority_pre = 0;
+    int c_rr = 0;
+
+    if (input == NULL || n <= 0 || n > MAX_PROCESSES)
+    {
+        printf("\nInvalid process data for comparison.\n");
+        return;
+    }
+
+    if (quantum <= 0)
+    {
         printf("\nTime quantum must be greater than zero.\n");
         return;
     }
 
-    /* Copy original processes for each algorithm */
-    for (i = 0; i < 6; i++) {
-        memcpy(p[i], input, sizeof(Process) * n);
-    }
+    /* Preserve the original input for every algorithm. */
+    memcpy(p_fcfs, input, n * sizeof(Process));
+    memcpy(p_sjf, input, n * sizeof(Process));
+    memcpy(p_priority, input, n * sizeof(Process));
+    memcpy(p_srtf, input, n * sizeof(Process));
+    memcpy(p_priority_pre, input, n * sizeof(Process));
+    memcpy(p_rr, input, n * sizeof(Process));
 
-    /* Execute all six algorithms */
-    fcfs(p[0], n, events[0], &counts[0]);
-    sjf(p[1], n, events[1], &counts[1]);
-    priority_nonpreemptive(p[2], n, events[2], &counts[2]);
-    srtf(p[3], n, events[3], &counts[3]);
-    priority_preemptive(p[4], n, events[4], &counts[4]);
-    round_robin(p[5], n, quantum, events[5], &counts[5]);
+    /* Run each algorithm independently. */
+    fcfs(p_fcfs, n, e_fcfs, &c_fcfs);
 
-    printf("\n================ ALGORITHM COMPARISON ================\n");
+    sjf(p_sjf, n, e_sjf, &c_sjf);
 
-    printf("%-25s %12s %12s %12s %12s\n",
-           "Algorithm", "Avg WT", "Avg TAT",
-           "Avg RT", "CPU Usage");
+    priority_nonpreemptive(p_priority, n,
+                           e_priority, &c_priority);
 
-    for (i = 0; i < 6; i++) {
-        total_time[i] = get_total_time(events[i], counts[i]);
+    srtf(p_srtf, n, e_srtf, &c_srtf);
 
-        printf("%-25s %12.2f %12.2f %12.2f %11.2f%%\n",
-               names[i],
-               average_metric(p[i], n, 0),
-               average_metric(p[i], n, 1),
-               average_metric(p[i], n, 2),
-               get_cpu_usage(events[i], counts[i], total_time[i]));
-    }
+    priority_preemptive(p_priority_pre, n,
+                        e_priority_pre, &c_priority_pre);
 
-    printf("\nRound Robin Time Quantum: %d\n", quantum);
+    round_robin(p_rr, n, quantum, e_rr, &c_rr);
+
+    printf("\n");
+    printf("=============================================================="
+           "================================\n");
+    printf("                  ALGORITHM COMPARISON\n");
+    printf("=============================================================="
+           "================================\n");
+
+    printf("%-23s %-12s %-12s %-12s %-12s\n",
+           "Algorithm",
+           "Avg WT",
+           "Avg TAT",
+           "Avg RT",
+           "CPU Util %");
+
+    printf("----------------------------------------------------------------"
+           "--------------------------------\n");
+
+    report_one("FCFS",
+               p_fcfs, n, e_fcfs, c_fcfs);
+
+    report_one("SJF Non-Preemptive",
+               p_sjf, n, e_sjf, c_sjf);
+
+    report_one("Priority Non-Preemptive",
+               p_priority, n, e_priority, c_priority);
+
+    report_one("SRTF",
+               p_srtf, n, e_srtf, c_srtf);
+
+    report_one("Priority Preemptive",
+               p_priority_pre, n, e_priority_pre, c_priority_pre);
+
+    report_one("Round Robin",
+               p_rr, n, e_rr, c_rr);
+
+    printf("=============================================================="
+           "================================\n");
 }
