@@ -9,7 +9,6 @@ typedef struct {
     int arrival_time;
     int burst_time;
     int priority;
-
     int waiting_time;
     int turnaround_time;
     int response_time;
@@ -22,13 +21,11 @@ typedef struct {
     int end_time;
 } Event;
 
-/* Person 1: Non-preemptive algorithms */
 void fcfs(Process p[], int n, Event events[], int *event_count);
 void sjf(Process p[], int n, Event events[], int *event_count);
 void priority_nonpreemptive(
     Process p[], int n, Event events[], int *event_count);
 
-/* Person 2: Preemptive algorithms */
 void srtf(Process p[], int n, Event events[], int *event_count);
 void priority_preemptive(
     Process p[], int n, Event events[], int *event_count);
@@ -36,7 +33,6 @@ void round_robin(
     Process p[], int n, int quantum,
     Event events[], int *event_count);
 
-/* Person 3: Output and calculations */
 void display_gantt_chart(Event events[], int event_count);
 void display_results(Process p[], int n);
 void calculate_averages(Process p[], int n);
