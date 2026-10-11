@@ -1,10 +1,9 @@
-#include <stdio.h>
 #include "scheduler.h"
 
 static void add_event(Event events[], int *count,
                       int pid, int start, int end)
 {
-    if (events == NULL || count == NULL || start >= end)
+    if (events == 0 || count == 0 || end <= start)
         return;
 
     if (*count > 0 &&
@@ -34,16 +33,20 @@ static int select_process(Process p[], int n, int time,
         if (best == -1) {
             best = i;
         } else if (mode == 0) {
-            /* FCFS: earliest arrival */
+            /* FCFS: earliest arrival first */
             if (p[i].arrival_time < p[best].arrival_time)
                 best = i;
         } else if (mode == 1) {
-            /* SJF: shortest burst */
-            if (p[i].burst_time < p[best].burst_time)
+            /* SJF: shortest burst first */
+            if (p[i].burst_time < p[best].burst_time ||
+                (p[i].burst_time == p[best].burst_time &&
+                 p[i].arrival_time < p[best].arrival_time))
                 best = i;
         } else {
-            /* Priority: smaller number means higher priority */
-            if (p[i].priority < p[best].priority)
+            /* Smaller priority number means higher priority */
+            if (p[i].priority < p[best].priority ||
+                (p[i].priority == p[best].priority &&
+                 p[i].arrival_time < p[best].arrival_time))
                 best = i;
         }
     }
@@ -58,16 +61,19 @@ static void run_nonpreemptive(Process p[], int n,
     int completed[MAX_PROCESSES] = {0};
     int time = 0, finished = 0, i;
 
-    if (event_count == NULL)
+    if (event_count == 0)
         return;
 
     *event_count = 0;
 
-    if (p == NULL || events == NULL ||
+    if (p == 0 || events == 0 ||
         n <= 0 || n > MAX_PROCESSES)
         return;
 
     for (i = 0; i < n; i++) {
+        if (p[i].arrival_time < 0 || p[i].burst_time <= 0)
+            return;
+
         p[i].waiting_time = 0;
         p[i].turnaround_time = 0;
         p[i].response_time = 0;
@@ -84,15 +90,19 @@ static void run_nonpreemptive(Process p[], int n,
             for (i = 0; i < n; i++) {
                 if (!completed[i] &&
                     (next_arrival == -1 ||
-                     p[i].arrival_time < next_arrival)) {
+                     p[i].arrival_time < next_arrival))
                     next_arrival = p[i].arrival_time;
-                }
             }
 
+            if (next_arrival < 0)
+                return;
+
             if (next_arrival > time) {
-                add_event(events, event_count, -1,
-                          time, next_arrival);
+                add_event(events, event_count,
+                          -1, time, next_arrival);
                 time = next_arrival;
+            } else {
+                return;
             }
 
             continue;
@@ -102,15 +112,18 @@ static void run_nonpreemptive(Process p[], int n,
             int start = time;
             int end = start + p[selected].burst_time;
 
-            add_event(events, event_count, p[selected].pid,
-                      start, end);
+            add_event(events, event_count,
+                      p[selected].pid, start, end);
 
             p[selected].completion_time = end;
+
             p[selected].turnaround_time =
                 end - p[selected].arrival_time;
+
             p[selected].waiting_time =
                 p[selected].turnaround_time -
                 p[selected].burst_time;
+
             p[selected].response_time =
                 start - p[selected].arrival_time;
 
@@ -121,12 +134,14 @@ static void run_nonpreemptive(Process p[], int n,
     }
 }
 
-void fcfs(Process p[], int n, Event events[], int *event_count)
+void fcfs(Process p[], int n,
+          Event events[], int *event_count)
 {
     run_nonpreemptive(p, n, events, event_count, 0);
 }
 
-void sjf(Process p[], int n, Event events[], int *event_count)
+void sjf(Process p[], int n,
+         Event events[], int *event_count)
 {
     run_nonpreemptive(p, n, events, event_count, 1);
 }
