@@ -181,23 +181,7 @@ Words: ['Python', 'Programming']
 Word lengths: [6, 11]
 
 
-C. Palindrome Check and Word Reversal
 
-CODE:
-text = "madam"
-
-if text == text[::-1]:
-    print(text, "is a palindrome")
-else:
-    print(text, "is not a palindrome")
-
-sentence = "I love Python programming"
-reversed_words = " ".join(sentence.split()[::-1])
-print("Reversed word order:", reversed_words)
-
-OUTPUT:
-madam is a palindrome
-Reversed word order: programming Python love I
 
 
 ==================================================
