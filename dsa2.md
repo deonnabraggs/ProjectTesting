@@ -2,7 +2,7 @@ PROGRAM 5
 
 QUESTION: Implement Singly, Doubly, and Circular Linked Lists with insertion, deletion, and traversal.
 
-A. Singly Linked List
+A. SINGLY LINKED LIST
 
 CODE:
 
@@ -37,8 +37,9 @@ class SinglyLinkedList:
             else:
                 self.head = temp.next
 
-    def display(self):
+    def traverse(self):
         temp = self.head
+        print("Traversal:", end=" ")
         while temp:
             print(temp.data, end=" ")
             temp = temp.next
@@ -48,20 +49,19 @@ s = SinglyLinkedList()
 s.insert(10)
 s.insert(20)
 s.insert(30)
-print("Singly linked list:")
-s.display()
+s.traverse()
 s.delete(20)
 print("After deletion:")
-s.display()
+s.traverse()
 
 OUTPUT:
-Singly linked list:
-10 20 30
+
+Traversal: 10 20 30
 After deletion:
-10 30
+Traversal: 10 30
 
 
-B. Doubly Linked List
+B. DOUBLY LINKED LIST
 
 CODE:
 
@@ -99,31 +99,45 @@ class DoublyLinkedList:
         if temp.next:
             temp.next.prev = temp.prev
 
-    def display(self):
+    def traverse(self):
         temp = self.head
+        print("Forward traversal:", end=" ")
         while temp:
             print(temp.data, end=" ")
             temp = temp.next
+        print()
+
+    def reverse_traverse(self):
+        temp = self.head
+        if temp is None:
+            return
+        while temp.next:
+            temp = temp.next
+        print("Reverse traversal:", end=" ")
+        while temp:
+            print(temp.data, end=" ")
+            temp = temp.prev
         print()
 
 d = DoublyLinkedList()
 d.insert(10)
 d.insert(20)
 d.insert(30)
-print("Doubly linked list:")
-d.display()
+d.traverse()
+d.reverse_traverse()
 d.delete(20)
 print("After deletion:")
-d.display()
+d.traverse()
 
 OUTPUT:
-Doubly linked list:
-10 20 30
+
+Forward traversal: 10 20 30
+Reverse traversal: 30 20 10
 After deletion:
-10 30
+Forward traversal: 10 30
 
 
-C. Circular Linked List
+C. CIRCULAR LINKED LIST
 
 CODE:
 
@@ -172,11 +186,12 @@ class CircularLinkedList:
             if curr == self.head:
                 return
 
-    def display(self):
+    def traverse(self):
         if self.head is None:
-            print()
+            print("List is empty")
             return
         temp = self.head
+        print("Traversal:", end=" ")
         while True:
             print(temp.data, end=" ")
             temp = temp.next
@@ -188,24 +203,23 @@ c = CircularLinkedList()
 c.insert(10)
 c.insert(20)
 c.insert(30)
-print("Circular linked list:")
-c.display()
+c.traverse()
 c.delete(20)
 print("After deletion:")
-c.display()
+c.traverse()
 
 OUTPUT:
-Circular linked list:
-10 20 30
+
+Traversal: 10 20 30
 After deletion:
-10 30
+Traversal: 10 30
 
 
 PROGRAM 6
 
-QUESTION: Implement Stack and Queue using lists, infix-to-postfix conversion, and queue simulation.
+QUESTION: Implement Stack and Queue using List/Linked List and solve applications such as infix-to-postfix conversion and queue simulation.
 
-A. Stack Using List
+A. STACK USING LIST
 
 CODE:
 
@@ -213,17 +227,19 @@ stack = []
 stack.append(10)
 stack.append(20)
 stack.append(30)
+
 print("Stack:", stack)
 print("Popped element:", stack.pop())
 print("Stack after pop:", stack)
 
 OUTPUT:
+
 Stack: [10, 20, 30]
 Popped element: 30
 Stack after pop: [10, 20]
 
 
-B. Queue Using List
+B. QUEUE USING LIST
 
 CODE:
 
@@ -231,17 +247,121 @@ queue = []
 queue.append(10)
 queue.append(20)
 queue.append(30)
+
 print("Queue:", queue)
 print("Dequeued element:", queue.pop(0))
 print("Queue after dequeue:", queue)
 
 OUTPUT:
+
 Queue: [10, 20, 30]
 Dequeued element: 10
 Queue after dequeue: [20, 30]
 
 
-C. Infix-to-Postfix Conversion
+C. STACK USING LINKED LIST WITH TRAVERSAL
+
+CODE:
+
+class Node:
+    def __init__(self, data):
+        self.data = data
+        self.next = None
+
+class Stack:
+    def __init__(self):
+        self.top = None
+
+    def push(self, data):
+        node = Node(data)
+        node.next = self.top
+        self.top = node
+
+    def pop(self):
+        if self.top is None:
+            print("Stack is empty")
+            return
+        print("Popped element:", self.top.data)
+        self.top = self.top.next
+
+    def traverse(self):
+        temp = self.top
+        print("Stack traversal:", end=" ")
+        while temp:
+            print(temp.data, end=" ")
+            temp = temp.next
+        print()
+
+s = Stack()
+s.push(10)
+s.push(20)
+s.push(30)
+s.traverse()
+s.pop()
+s.traverse()
+
+OUTPUT:
+
+Stack traversal: 30 20 10
+Popped element: 30
+Stack traversal: 20 10
+
+
+D. QUEUE USING LINKED LIST WITH TRAVERSAL
+
+CODE:
+
+class Node:
+    def __init__(self, data):
+        self.data = data
+        self.next = None
+
+class Queue:
+    def __init__(self):
+        self.front = None
+        self.rear = None
+
+    def enqueue(self, data):
+        node = Node(data)
+        if self.rear is None:
+            self.front = self.rear = node
+            return
+        self.rear.next = node
+        self.rear = node
+
+    def dequeue(self):
+        if self.front is None:
+            print("Queue is empty")
+            return
+        print("Dequeued element:", self.front.data)
+        self.front = self.front.next
+        if self.front is None:
+            self.rear = None
+
+    def traverse(self):
+        temp = self.front
+        print("Queue traversal:", end=" ")
+        while temp:
+            print(temp.data, end=" ")
+            temp = temp.next
+        print()
+
+q = Queue()
+q.enqueue(10)
+q.enqueue(20)
+q.enqueue(30)
+q.traverse()
+q.dequeue()
+q.traverse()
+
+OUTPUT:
+
+Queue traversal: 10 20 30
+Dequeued element: 10
+Queue traversal: 20 30
+
+
+E. INFIX-TO-POSTFIX CONVERSION
 
 CODE:
 
@@ -255,6 +375,7 @@ def precedence(op):
 def infix_to_postfix(expression):
     result = []
     stack = []
+
     for ch in expression:
         if ch.isalnum():
             result.append(ch)
@@ -269,8 +390,10 @@ def infix_to_postfix(expression):
             while stack and stack[-1] != "(" and precedence(stack[-1]) >= precedence(ch):
                 result.append(stack.pop())
             stack.append(ch)
+
     while stack:
         result.append(stack.pop())
+
     return "".join(result)
 
 expression = "A+B*C"
@@ -278,11 +401,12 @@ print("Infix expression:", expression)
 print("Postfix expression:", infix_to_postfix(expression))
 
 OUTPUT:
+
 Infix expression: A+B*C
 Postfix expression: ABC*+
 
 
-D. Queue Simulation
+F. QUEUE SIMULATION
 
 CODE:
 
@@ -292,12 +416,15 @@ queue = deque()
 queue.append("Customer 1")
 queue.append("Customer 2")
 queue.append("Customer 3")
+
 print("Waiting queue:", list(queue))
+
 served = queue.popleft()
 print("Served:", served)
 print("Remaining queue:", list(queue))
 
 OUTPUT:
+
 Waiting queue: ['Customer 1', 'Customer 2', 'Customer 3']
 Served: Customer 1
 Remaining queue: ['Customer 2', 'Customer 3']
@@ -305,9 +432,9 @@ Remaining queue: ['Customer 2', 'Customer 3']
 
 PROGRAM 7
 
-QUESTION: Implement a Binary Tree and perform Inorder, Preorder, and Postorder traversals.
+QUESTION: Implement a Binary Tree and perform traversals (Inorder, Preorder, Postorder).
 
-A. Inorder Traversal
+A. INORDER TRAVERSAL
 
 CODE:
 
@@ -334,10 +461,11 @@ inorder(node)
 print()
 
 OUTPUT:
+
 Inorder traversal: 4 2 5 1 3
 
 
-B. Preorder Traversal
+B. PREORDER TRAVERSAL
 
 CODE:
 
@@ -364,10 +492,11 @@ preorder(node)
 print()
 
 OUTPUT:
+
 Preorder traversal: 1 2 4 5 3
 
 
-C. Postorder Traversal
+C. POSTORDER TRAVERSAL
 
 CODE:
 
@@ -394,6 +523,7 @@ postorder(node)
 print()
 
 OUTPUT:
+
 Postorder traversal: 4 5 2 3 1
 
 
@@ -401,7 +531,7 @@ PROGRAM 8
 
 QUESTION: Implement Binary Search Tree operations and Graph Traversal Algorithms (BFS, DFS). Analyze their efficiency.
 
-A. Binary Search Tree Insertion and Traversal
+A. BINARY SEARCH TREE INSERTION AND TRAVERSAL
 
 CODE:
 
@@ -435,10 +565,11 @@ inorder(node)
 print()
 
 OUTPUT:
+
 BST inorder traversal: 20 30 40 50 60 70 80
 
 
-B. Binary Search Tree Searching
+B. BINARY SEARCH TREE SEARCHING
 
 CODE:
 
@@ -475,10 +606,11 @@ else:
     print("Element not found")
 
 OUTPUT:
+
 Element found: 40
 
 
-C. Binary Search Tree Deletion
+C. BINARY SEARCH TREE DELETION
 
 CODE:
 
@@ -532,10 +664,11 @@ inorder(node)
 print()
 
 OUTPUT:
+
 BST after deletion: 20 40 50 60 70 80
 
 
-D. Breadth-First Search (BFS)
+D. BREADTH-FIRST SEARCH (BFS)
 
 CODE:
 
@@ -553,9 +686,11 @@ graph = {
 def bfs(graph, start):
     visited = {start}
     queue = deque([start])
+
     while queue:
         node = queue.popleft()
         print(node, end=" ")
+
         for neighbor in graph[node]:
             if neighbor not in visited:
                 visited.add(neighbor)
@@ -566,10 +701,11 @@ bfs(graph, 'A')
 print()
 
 OUTPUT:
+
 BFS traversal: A B C D E F
 
 
-E. Depth-First Search (DFS)
+E. DEPTH-FIRST SEARCH (DFS)
 
 CODE:
 
@@ -585,8 +721,10 @@ graph = {
 def dfs(graph, start, visited=None):
     if visited is None:
         visited = set()
+
     visited.add(start)
     print(start, end=" ")
+
     for neighbor in graph[start]:
         if neighbor not in visited:
             dfs(graph, neighbor, visited)
@@ -596,10 +734,11 @@ dfs(graph, 'A')
 print()
 
 OUTPUT:
+
 DFS traversal: A B D E C F
 
 
-F. Efficiency Analysis
+F. EFFICIENCY ANALYSIS
 
 CODE:
 
@@ -609,6 +748,7 @@ print("BFS time complexity: O(V + E)")
 print("DFS time complexity: O(V + E)")
 
 OUTPUT:
+
 BST average search time: O(log n)
 BST worst-case search time: O(n)
 BFS time complexity: O(V + E)
@@ -619,10 +759,11 @@ EFFICIENCY TABLE
 
 | Algorithm | Best / Average Case | Worst Case |
 |---|---|---|
-| BST Search | O(log n) | O(n) |
-| BST Insertion | O(log n) | O(n) |
-| BST Deletion | O(log n) | O(n) |
+| BST Search | O(log n) average | O(n) |
+| BST Insertion | O(log n) average | O(n) |
+| BST Deletion | O(log n) average | O(n) |
 | BFS | O(V + E) | O(V + E) |
 | DFS | O(V + E) | O(V + E) |
 
-NOTE: V represents the number of vertices, and E represents the number of edges. An unbalanced Binary Search Tree can take O(n) time in the worst case.
+NOTE:
+V represents the number of vertices, and E represents the number of edges. An unbalanced Binary Search Tree can take O(n) time in the worst case.
