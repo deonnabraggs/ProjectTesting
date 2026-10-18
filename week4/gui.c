@@ -24,7 +24,7 @@ static void log_message(const char *format, ...)
     gtk_text_buffer_get_end_iter(buffer, &end);
 
     gtk_text_buffer_insert(buffer, &end, message, -1);
-    gtk_text_buffer.insert(buffer, &end, "\n", 1);
+    gtk_text_buffer_insert(buffer, &end, "\n", 1);
 }
 
 /* Ask the user for an integer using a dialog box.
