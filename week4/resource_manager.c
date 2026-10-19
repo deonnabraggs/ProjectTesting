@@ -9,7 +9,7 @@ void create_processes(int count)
 
     for (int i = 0; i < MAX_PROCESSES; i++)
     {
-        active[i] = (i < n);
+        active[i] = (i < count);
 
         for (int j = 0; j < MAX_RESOURCES; j++)
         {
@@ -37,10 +37,12 @@ void create_resources(int count, const int amounts[])
     m = count;
 
     for (int j = 0; j < MAX_RESOURCES; j++)
-    {
-        total[j] = (j < m) ? amounts[j] : 0;
-    }
+        total[j] = (j < count) ? amounts[j] : 0;
 
+    /*
+     * Creating a new resource configuration resets the
+     * previous allocation, maximum, need and request data.
+     */
     for (int i = 0; i < MAX_PROCESSES; i++)
     {
         for (int j = 0; j < MAX_RESOURCES; j++)
@@ -57,30 +59,54 @@ void create_resources(int count, const int amounts[])
 
 void set_allocation(int pid, int rid, int amount)
 {
-    if (pid < 0 || pid >= n || rid < 0 || rid >= m ||
-        amount < 0 || !active[pid])
+    if (pid < 0 || pid >= n ||
+        rid < 0 || rid >= m ||
+        amount < 0 || amount > total[rid] ||
+        !active[pid])
+    {
+        return;
+    }
+
+    int old_allocation = allocation[pid][rid];
+    int old_maximum = maximum[pid][rid];
+
+    int used_by_others = total[rid] - available[rid];
+
+    /* Remove this process's previous allocation from the total. */
+    used_by_others -= old_allocation;
+
+    if (used_by_others + amount > total[rid])
         return;
 
-    int old = allocation[pid][rid];
     allocation[pid][rid] = amount;
 
-    if (amount > maximum[pid][rid])
+    /*
+     * If the allocation is larger than the old maximum,
+     * increase the maximum to match it.
+     */
+    if (maximum[pid][rid] < amount)
         maximum[pid][rid] = amount;
 
     recalculate_state();
 
     if (available[rid] < 0)
     {
-        allocation[pid][rid] = old;
+        allocation[pid][rid] = old_allocation;
+        maximum[pid][rid] = old_maximum;
         recalculate_state();
     }
 }
 
 void set_maximum(int pid, int rid, int amount)
 {
-    if (pid < 0 || pid >= n || rid < 0 || rid >= m ||
-        amount < allocation[pid][rid] || !active[pid])
+    if (pid < 0 || pid >= n ||
+        rid < 0 || rid >= m ||
+        !active[pid] ||
+        amount < allocation[pid][rid] ||
+        amount > total[rid])
+    {
         return;
+    }
 
     maximum[pid][rid] = amount;
     recalculate_state();
@@ -136,9 +162,9 @@ void load_sample_data(void)
     create_processes(5);
     create_resources(3, amounts);
 
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < 5; i++)
     {
-        for (int j = 0; j < m; j++)
+        for (int j = 0; j < 3; j++)
         {
             allocation[i][j] = alloc[i][j];
             maximum[i][j] = max_need[i][j];
