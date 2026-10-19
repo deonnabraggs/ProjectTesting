@@ -694,13 +694,6 @@ void run_gui(int argc, char *argv[])
 
     gtk_widget_show_all(window);
 
-    load_sample_data();
-
-    log_message("Welcome to the Deadlock Simulation System.");
-    log_message("Sample data loaded successfully.");
-    log_message("Blue graph arrows represent allocations.");
-    log_message("Red graph arrows represent outstanding requests.");
-
     show_state();
 
     gtk_main();
