@@ -2,12 +2,23 @@
 
 int is_safe(int sequence[])
 {
-    int work[MAX_RESOURCES];
+    if (sequence == NULL || n < 1 || n > MAX_PROCESSES ||
+        m < 1 || m > MAX_RESOURCES)
+    {
+        return 0;
+    }
+
+    int work[MAX_RESOURCES] = {0};
     int finish[MAX_PROCESSES] = {0};
     int count = 0;
 
     for (int j = 0; j < m; j++)
+    {
+        if (available[j] < 0)
+            return 0;
+
         work[j] = available[j];
+    }
 
     for (int i = 0; i < n; i++)
         sequence[i] = -1;
@@ -25,22 +36,23 @@ int is_safe(int sequence[])
 
             for (int j = 0; j < m; j++)
             {
-                if (need[i][j] > work[j])
+                if (need[i][j] < 0 || allocation[i][j] < 0 ||
+                    need[i][j] > work[j])
                 {
                     possible = 0;
                     break;
                 }
             }
 
-            if (possible)
-            {
-                for (int j = 0; j < m; j++)
-                    work[j] += allocation[i][j];
+            if (!possible)
+                continue;
 
-                sequence[count++] = i;
-                finish[i] = 1;
-                found = 1;
-            }
+            for (int j = 0; j < m; j++)
+                work[j] += allocation[i][j];
+
+            sequence[count++] = i;
+            finish[i] = 1;
+            found = 1;
         }
 
         if (!found)
@@ -58,17 +70,33 @@ int is_safe(int sequence[])
 
 int detect_deadlock(int deadlocked[])
 {
-    int work[MAX_RESOURCES];
+    if (deadlocked == NULL || n < 1 || n > MAX_PROCESSES ||
+        m < 1 || m > MAX_RESOURCES)
+    {
+        return -1;
+    }
+
+    int work[MAX_RESOURCES] = {0};
     int finish[MAX_PROCESSES] = {0};
     int count = 0;
 
-    for (int j = 0; j < m; j++)
-        work[j] = available[j];
-
     for (int i = 0; i < n; i++)
-    {
         deadlocked[i] = 0;
 
+    for (int j = 0; j < m; j++)
+    {
+        if (available[j] < 0)
+            return -1;
+
+        work[j] = available[j];
+    }
+
+    /*
+     * A process holding no resources cannot be part of a
+     * resource-allocation deadlock in this detection model.
+     */
+    for (int i = 0; i < n; i++)
+    {
         if (!active[i])
         {
             finish[i] = 1;
@@ -80,11 +108,13 @@ int detect_deadlock(int deadlocked[])
         for (int j = 0; j < m; j++)
         {
             if (allocation[i][j] > 0)
+            {
                 has_allocation = 1;
+                break;
+            }
         }
 
-        if (!has_allocation)
-            finish[i] = 1;
+        finish[i] = !has_allocation;
     }
 
     int changed;
@@ -95,28 +125,29 @@ int detect_deadlock(int deadlocked[])
 
         for (int i = 0; i < n; i++)
         {
-            if (finish[i])
+            if (!active[i] || finish[i])
                 continue;
 
             int possible = 1;
 
             for (int j = 0; j < m; j++)
             {
-                if (request[i][j] > work[j])
+                if (request[i][j] < 0 ||
+                    request[i][j] > work[j])
                 {
                     possible = 0;
                     break;
                 }
             }
 
-            if (possible)
-            {
-                for (int j = 0; j < m; j++)
-                    work[j] += allocation[i][j];
+            if (!possible)
+                continue;
 
-                finish[i] = 1;
-                changed = 1;
-            }
+            for (int j = 0; j < m; j++)
+                work[j] += allocation[i][j];
+
+            finish[i] = 1;
+            changed = 1;
         }
     } while (changed);
 
