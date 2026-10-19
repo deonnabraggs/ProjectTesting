@@ -2,7 +2,8 @@
 
 int is_safe(int sequence[])
 {
-    if (sequence == NULL || n < 1 || n > MAX_PROCESSES ||
+    if (sequence == NULL ||
+        n < 1 || n > MAX_PROCESSES ||
         m < 1 || m > MAX_RESOURCES)
     {
         return 0;
@@ -36,8 +37,7 @@ int is_safe(int sequence[])
 
             for (int j = 0; j < m; j++)
             {
-                if (need[i][j] < 0 || allocation[i][j] < 0 ||
-                    need[i][j] > work[j])
+                if (need[i][j] > work[j])
                 {
                     possible = 0;
                     break;
@@ -70,7 +70,8 @@ int is_safe(int sequence[])
 
 int detect_deadlock(int deadlocked[])
 {
-    if (deadlocked == NULL || n < 1 || n > MAX_PROCESSES ||
+    if (deadlocked == NULL ||
+        n < 1 || n > MAX_PROCESSES ||
         m < 1 || m > MAX_RESOURCES)
     {
         return -1;
@@ -91,10 +92,6 @@ int detect_deadlock(int deadlocked[])
         work[j] = available[j];
     }
 
-    /*
-     * A process holding no resources cannot be part of a
-     * resource-allocation deadlock in this detection model.
-     */
     for (int i = 0; i < n; i++)
     {
         if (!active[i])
@@ -114,6 +111,7 @@ int detect_deadlock(int deadlocked[])
             }
         }
 
+        /* Standard detection algorithm initialization. */
         finish[i] = !has_allocation;
     }
 
@@ -132,8 +130,7 @@ int detect_deadlock(int deadlocked[])
 
             for (int j = 0; j < m; j++)
             {
-                if (request[i][j] < 0 ||
-                    request[i][j] > work[j])
+                if (request[i][j] > work[j])
                 {
                     possible = 0;
                     break;
