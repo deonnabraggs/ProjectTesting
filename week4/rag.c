@@ -44,7 +44,7 @@ void draw_resource_graph(cairo_t *cr, int width, int height)
     double process_gap = (double)width / (n + 1);
     double resource_gap = (double)width / (m + 1);
 
-    /* Draw edges first so the nodes appear above them. */
+    /* Draw allocation and request edges first. */
     for (int i = 0; i < n; i++)
     {
         for (int j = 0; j < m; j++)
@@ -72,7 +72,7 @@ void draw_resource_graph(cairo_t *cr, int width, int height)
         }
     }
 
-    /* Draw process nodes. */
+    /* Draw processes. */
     for (int i = 0; i < n; i++)
     {
         double x = process_gap * (i + 1);
@@ -82,8 +82,7 @@ void draw_resource_graph(cairo_t *cr, int width, int height)
         else
             cairo_set_source_rgb(cr, 0.65, 0.65, 0.65);
 
-        cairo_arc(cr, x, process_y,
-                  process_radius, 0, 2 * G_PI);
+        cairo_arc(cr, x, process_y, process_radius, 0, 2 * G_PI);
         cairo_fill_preserve(cr);
 
         cairo_set_source_rgb(cr, 0, 0, 0);
@@ -106,8 +105,7 @@ void draw_resource_graph(cairo_t *cr, int width, int height)
         cairo_rectangle(cr,
                         x - resource_size / 2,
                         resource_y - resource_size / 2,
-                        resource_size,
-                        resource_size);
+                        resource_size, resource_size);
 
         cairo_fill_preserve(cr);
 
@@ -121,7 +119,6 @@ void draw_resource_graph(cairo_t *cr, int width, int height)
         cairo_show_text(cr, label);
     }
 
-    /* Graph legend. */
     cairo_set_source_rgb(cr, 0.1, 0.3, 0.9);
     cairo_move_to(cr, 15, height - 25);
     cairo_show_text(cr, "Blue: Allocation");
