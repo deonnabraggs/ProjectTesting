@@ -4,13 +4,13 @@ int request_resources(int pid, const int req[])
 {
     int sequence[MAX_PROCESSES];
 
-    if (req == NULL || pid < 0 || pid >= n ||
-        !active[pid] || m < 1 || m > MAX_RESOURCES)
+    if (req == NULL ||
+        pid < 0 || pid >= n ||
+        !active[pid])
     {
         return REQ_INVALID;
     }
 
-    /* A request cannot exceed the process's remaining need. */
     for (int j = 0; j < m; j++)
     {
         if (req[j] < 0)
@@ -20,7 +20,6 @@ int request_resources(int pid, const int req[])
             return REQ_EXCEEDS_NEED;
     }
 
-    /* If resources are unavailable, keep the request pending. */
     for (int j = 0; j < m; j++)
     {
         if (req[j] > available[j])
@@ -32,7 +31,6 @@ int request_resources(int pid, const int req[])
         }
     }
 
-    /* Temporarily grant the request. */
     for (int j = 0; j < m; j++)
     {
         available[j] -= req[j];
@@ -41,11 +39,10 @@ int request_resources(int pid, const int req[])
         request[pid][j] = 0;
     }
 
-    /* Grant only if the resulting state is safe. */
     if (is_safe(sequence))
         return REQ_GRANTED;
 
-    /* Unsafe: undo the temporary allocation. */
+    /* Roll back if the resulting state is unsafe. */
     for (int j = 0; j < m; j++)
     {
         available[j] += req[j];
@@ -62,10 +59,6 @@ int recover_from_deadlock(int pid)
     if (pid < 0 || pid >= n || !active[pid])
         return REC_INVALID;
 
-    /*
-     * Terminate the process and clear its resource data.
-     * Recalculation returns its held resources to available.
-     */
     active[pid] = 0;
 
     for (int j = 0; j < m; j++)
