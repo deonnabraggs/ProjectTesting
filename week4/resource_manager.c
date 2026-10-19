@@ -39,10 +39,7 @@ void create_resources(int count, const int amounts[])
     for (int j = 0; j < MAX_RESOURCES; j++)
         total[j] = (j < count) ? amounts[j] : 0;
 
-    /*
-     * Creating a new resource configuration resets the
-     * previous allocation, maximum, need and request data.
-     */
+    /* A new resource setup starts with no allocations. */
     for (int i = 0; i < MAX_PROCESSES; i++)
     {
         for (int j = 0; j < MAX_RESOURCES; j++)
@@ -61,29 +58,22 @@ void set_allocation(int pid, int rid, int amount)
 {
     if (pid < 0 || pid >= n ||
         rid < 0 || rid >= m ||
-        amount < 0 || amount > total[rid] ||
-        !active[pid])
+        amount < 0 || !active[pid])
     {
         return;
     }
 
-    int old_allocation = allocation[pid][rid];
-    int old_maximum = maximum[pid][rid];
-
-    int used_by_others = total[rid] - available[rid];
-
-    /* Remove this process's previous allocation from the total. */
-    used_by_others -= old_allocation;
+    int used_by_others = total[rid] - available[rid]
+                         - allocation[pid][rid];
 
     if (used_by_others + amount > total[rid])
         return;
 
+    int old_allocation = allocation[pid][rid];
+    int old_maximum = maximum[pid][rid];
+
     allocation[pid][rid] = amount;
 
-    /*
-     * If the allocation is larger than the old maximum,
-     * increase the maximum to match it.
-     */
     if (maximum[pid][rid] < amount)
         maximum[pid][rid] = amount;
 
