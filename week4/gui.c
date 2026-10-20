@@ -565,6 +565,7 @@ static void add_button(GtkWidget *grid,
                        int column,
                        int row)
 {
+    /* Display button labels in uppercase for a consistent, bold interface. */
     gchar *upper_label = g_ascii_strup(label, -1);
     GtkWidget *button = gtk_button_new_with_label(upper_label);
     g_free(upper_label);
@@ -581,16 +582,25 @@ void run_gui(int argc, char *argv[])
 {
     gtk_init(&argc, &argv);
 
+    /* Large, readable typography and controls throughout the application. */
     GtkCssProvider *css = gtk_css_provider_new();
     GError *css_error = NULL;
-
     const gchar *css_rules =
-        "* { font-family: Sans; font-size: 13pt; }"
-        "button { padding: 8px 12px; min-height: 38px; font-weight: bold; }"
-        "label.title-label { font-size: 20pt; font-weight: bold; }"
-        "label.status-label { font-size: 15pt; font-weight: bold; padding: 8px; }"
-        "frame > label { font-weight: bold; }"
-        "textview, textview text { font-family: Monospace; font-size: 12pt; }";
+        "* { font-family: Sans; font-size: 12pt; }"
+        "window { background-color: #f1f5f9; color: #1e293b; }"
+        ".app-header { background-color: #17324d; border-radius: 10px; padding: 18px; }"
+        "label.title-label { color: #ffffff; font-size: 21pt; font-weight: bold; }"
+        "label.subtitle-label { color: #dbeafe; font-size: 10pt; }"
+        ".status-banner { background-color: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; }"
+        "label.status-label { color: #17324d; font-size: 14pt; font-weight: bold; padding: 4px; }"
+        "frame { border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px; background-color: #ffffff; }"
+        "frame > label { color: #17324d; font-weight: bold; }"
+        "button { background-image: none; background-color: #ffffff; color: #17324d; border: 1px solid #cbd5e1; border-radius: 7px; padding: 8px 10px; min-height: 38px; font-size: 10pt; font-weight: bold; }"
+        "button:hover { background-color: #e0ecf8; border-color: #477ca8; }"
+        "button:active { background-color: #cbdff2; }"
+        "textview, textview text { background-color: #ffffff; color: #1e293b; font-family: Monospace; font-size: 11pt; }"
+        "scrolledwindow { background-color: #ffffff; }"
+        "drawingarea { background-color: #ffffff; }";
 
     if (!gtk_css_provider_load_from_data(css, css_rules, -1, &css_error))
     {
@@ -619,43 +629,60 @@ void run_gui(int argc, char *argv[])
                          "Interactive Deadlock Simulation System");
     gtk_window_set_default_size(GTK_WINDOW(window), 1400, 900);
     gtk_window_set_resizable(GTK_WINDOW(window), TRUE);
+    gtk_window_set_decorated(GTK_WINDOW(window), TRUE);
+    gtk_window_set_deletable(GTK_WINDOW(window), TRUE);
     gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
 
     g_signal_connect(window, "destroy",
                      G_CALLBACK(gtk_main_quit), NULL);
 
     GtkWidget *main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-
     gtk_container_set_border_width(GTK_CONTAINER(main_box), 10);
     gtk_container_add(GTK_CONTAINER(window), main_box);
 
+    GtkWidget *header = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(header), "app-header");
+
+    gtk_box_pack_start(GTK_BOX(main_box), header, FALSE, FALSE, 2);
+
     GtkWidget *heading = gtk_label_new(
-        "OPERATING SYSTEMS - DEADLOCK SIMULATION");
+        "OPERATING SYSTEMS  |  DEADLOCK SIMULATION");
 
-    PangoAttrList *attrs = pango_attr_list_new();
-
-    PangoAttribute *weight =
-        pango_attr_weight_new(PANGO_WEIGHT_BOLD);
-
-    pango_attr_list_insert(attrs, weight);
-    pango_attr_list_insert(attrs, pango_attr_size_new(20 * PANGO_SCALE));
-
-    gtk_label_set_attributes(GTK_LABEL(heading), attrs);
-    pango_attr_list_unref(attrs);
+    gtk_widget_set_halign(heading, GTK_ALIGN_START);
 
     gtk_style_context_add_class(
         gtk_widget_get_style_context(heading), "title-label");
 
-    gtk_box_pack_start(GTK_BOX(main_box), heading,
-                       FALSE, FALSE, 4);
+    gtk_box_pack_start(GTK_BOX(header), heading, FALSE, FALSE, 0);
+
+    GtkWidget *subtitle = gtk_label_new(
+        "RESOURCE ALLOCATION  •  BANKER'S ALGORITHM  •  DEADLOCK DETECTION");
+
+    gtk_widget_set_halign(subtitle, GTK_ALIGN_START);
+
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(subtitle), "subtitle-label");
+
+    gtk_box_pack_start(GTK_BOX(header), subtitle, FALSE, FALSE, 0);
+
+    GtkWidget *status_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(status_box), "status-banner");
+
+    gtk_box_pack_start(GTK_BOX(main_box), status_box, FALSE, FALSE, 2);
 
     status_label = gtk_label_new("SYSTEM STATUS: NOT CONFIGURED");
+
+    gtk_widget_set_halign(status_label, GTK_ALIGN_START);
 
     gtk_style_context_add_class(
         gtk_widget_get_style_context(status_label), "status-label");
 
-    gtk_box_pack_start(GTK_BOX(main_box), status_label,
-                       FALSE, FALSE, 4);
+    gtk_box_pack_start(GTK_BOX(status_box), status_label,
+                       TRUE, TRUE, 2);
 
     GtkWidget *content_box =
         gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
@@ -666,18 +693,23 @@ void run_gui(int argc, char *argv[])
     GtkWidget *left_box =
         gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
 
-    gtk_widget_set_size_request(left_box, 430, -1);
+    gtk_widget_set_size_request(left_box, 450, -1);
 
     gtk_box_pack_start(GTK_BOX(content_box), left_box,
                        FALSE, FALSE, 0);
 
+    GtkWidget *controls_frame = gtk_frame_new("SIMULATION CONTROLS");
+
+    gtk_box_pack_start(GTK_BOX(left_box), controls_frame,
+                       FALSE, FALSE, 0);
+
     GtkWidget *grid = gtk_grid_new();
 
-    gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
-    gtk_grid_set_column_spacing(GTK_GRID(grid), 6);
+    gtk_container_set_border_width(GTK_CONTAINER(grid), 6);
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 7);
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 7);
 
-    gtk_box_pack_start(GTK_BOX(left_box), grid,
-                       FALSE, FALSE, 0);
+    gtk_container_add(GTK_CONTAINER(controls_frame), grid);
 
     add_button(grid, "Create Processes",
                G_CALLBACK(on_create_processes), 0, 0);
@@ -719,7 +751,7 @@ void run_gui(int argc, char *argv[])
                G_CALLBACK(on_exit_clicked), 0, 6);
 
     GtkWidget *graph_frame =
-        gtk_frame_new("Resource Allocation Graph");
+        gtk_frame_new("RESOURCE ALLOCATION GRAPH");
 
     gtk_box_pack_start(GTK_BOX(left_box), graph_frame,
                        TRUE, TRUE, 4);
@@ -733,7 +765,8 @@ void run_gui(int argc, char *argv[])
 
     gtk_container_add(GTK_CONTAINER(graph_frame), graph_area);
 
-    GtkWidget *output_frame = gtk_frame_new("Simulation Output");
+    GtkWidget *output_frame =
+        gtk_frame_new("SIMULATION OUTPUT / LOG");
 
     gtk_box_pack_start(GTK_BOX(content_box), output_frame,
                        TRUE, TRUE, 0);
@@ -757,6 +790,7 @@ void run_gui(int argc, char *argv[])
 
     gtk_widget_show_all(window);
 
+    /* Maximize while keeping the standard window controls visible. */
     gtk_window_maximize(GTK_WINDOW(window));
 
     show_state();
