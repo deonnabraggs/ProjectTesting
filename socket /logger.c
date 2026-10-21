@@ -1,137 +1,69 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <sys/stat.h>
-#include <mqueue.h>
-#include <poll.h>
-
 #include "ipc.h"
+
+static int read_all(int fd, void *buffer, size_t length)
+{
+    char *p = buffer;
+    while (length > 0) {
+        ssize_t n = read(fd, p, length);
+        if (n < 0) { if (errno == EINTR) continue; return -1; }
+        if (n == 0) return 0;
+        p += n;
+        length -= (size_t)n;
+    }
+    return 1;
+}
 
 int main(void)
 {
-    mqd_t logger_mq;
-    struct mq_attr attr;
-    LogMessage message;
     int fifo_fd;
+    LogMessage message;
 
-    printf("\n");
+    printf("\n====================================\n");
+    printf("LOGGER PROCESS STARTED\n");
     printf("====================================\n");
-    printf("        LOGGER PROCESS STARTED\n");
-    printf("====================================\n");
-
-    attr.mq_flags = 0;
-    attr.mq_maxmsg = 10;
-    attr.mq_msgsize = sizeof(LogMessage);
-    attr.mq_curmsgs = 0;
-
-    mq_unlink(CORE_TO_LOGGER);
-
-    logger_mq = mq_open(CORE_TO_LOGGER,
-                        O_CREAT | O_RDONLY, 0666, &attr);
-
-    if (logger_mq == (mqd_t)-1)
-    {
-        perror("[LOGGER] mq_open");
-        return 1;
-    }
-
-    unlink(FIFO_PATH);
-
-    if (mkfifo(FIFO_PATH, 0666) == -1 && errno != EEXIST)
-    {
-        perror("[LOGGER] mkfifo");
-        mq_close(logger_mq);
-        mq_unlink(CORE_TO_LOGGER);
-        return 1;
-    }
-
-    printf("[LOGGER] Message queue created\n");
-    printf("[LOGGER] Waiting for Core to open FIFO...\n");
-    fflush(stdout);
+    printf("[LOGGER] Waiting for Core FIFO: %s\n", FIFO_PATH);
 
     fifo_fd = open(FIFO_PATH, O_RDONLY);
-    if (fifo_fd == -1)
-    {
-        perror("[LOGGER] FIFO open");
-        mq_close(logger_mq);
-        mq_unlink(CORE_TO_LOGGER);
-        unlink(FIFO_PATH);
+    if (fifo_fd == -1) {
+        perror("[LOGGER] open FIFO (start ./core first)");
         return 1;
     }
 
-    printf("[LOGGER] FIFO opened successfully\n");
-
-    struct pollfd fds[2];
-
-    fds[0].fd = (int)logger_mq;
-    fds[0].events = POLLIN;
-
-    fds[1].fd = fifo_fd;
-    fds[1].events = POLLIN;
-
-    while (1)
-    {
-        int ready = poll(fds, 2, -1);
-
-        if (ready == -1)
-        {
-            if (errno == EINTR)
-                continue;
-
-            perror("[LOGGER] poll");
+    printf("[LOGGER] FIFO opened. Waiting for log messages...\n");
+    for (;;) {
+        int result;
+        memset(&message, 0, sizeof(message));
+        result = read_all(fifo_fd, &message, sizeof(message));
+        if (result == 0) {
+            printf("[LOGGER] Core closed the FIFO. Logger stopping.\n");
+            break;
+        }
+        if (result == -1) {
+            perror("[LOGGER] read FIFO");
             break;
         }
 
-        if (fds[0].revents & POLLIN)
-        {
-            ssize_t n = mq_receive(logger_mq, (char *)&message,
-                                   sizeof(message), NULL);
+        printf("\n====================================\n");
+        printf("LOGGER OUTPUT (NAMED PIPE / FIFO)\n");
+        printf("====================================\n");
+        printf("Status  : %s\n", message.status == 0 ? "SUCCESS" : "ERROR");
+        printf("Message : %s\n", message.message);
+        if (message.result != -999999)
+            printf("Result  : %d\n", message.result);
+        printf("====================================\n");
 
-            if (n == (ssize_t)sizeof(message))
-            {
-                printf("\n[LOGGER][MESSAGE QUEUE] %s\n",
-                       message.message);
-                fflush(stdout);
-
-                if (strcmp(message.message,
-                           "Core process shutting down") == 0)
-                    break;
-            }
-            else if (n == -1 && errno != EINTR)
-                perror("[LOGGER] mq_receive");
-        }
-
-        if (fds[1].revents & POLLIN)
-        {
-            ssize_t n = read(fifo_fd, &message, sizeof(message));
-
-            if (n == (ssize_t)sizeof(message))
-            {
-                printf("[LOGGER][FIFO] %s\n", message.message);
-                fflush(stdout);
-
-                if (strcmp(message.message,
-                           "Core process shutting down") == 0)
-                    break;
-            }
-            else if (n == 0)
-            {
-                printf("[LOGGER] FIFO writer disconnected\n");
-                break;
-            }
-            else if (n == -1 && errno != EINTR)
-                perror("[LOGGER] FIFO read");
-        }
+        if (strcmp(message.message, "Core process shutting down") == 0)
+            break;
     }
 
     close(fifo_fd);
-    mq_close(logger_mq);
-    mq_unlink(CORE_TO_LOGGER);
-    unlink(FIFO_PATH);
-
-    printf("[LOGGER] Process terminated\n");
+    printf("[LOGGER] Process terminated.\n");
     return 0;
 }
