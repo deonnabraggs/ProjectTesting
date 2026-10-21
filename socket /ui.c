@@ -1,15 +1,16 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <mqueue.h>
 
 #include "ipc.h"
 
-/* Send a complete message through the socket. */
 static int send_all(int fd, const void *buffer, size_t len)
 {
     size_t sent = 0;
@@ -36,36 +37,6 @@ static int send_all(int fd, const void *buffer, size_t len)
     return 0;
 }
 
-/* Receive a response through the POSIX message queue. */
-static int receive_response(
-    mqd_t queue,
-    LogMessage *response
-)
-{
-    ssize_t n = mq_receive(
-        queue,
-        (char *)response,
-        sizeof(*response),
-        NULL
-    );
-
-    if (n == -1)
-    {
-        perror("[UI] mq_receive");
-        return -1;
-    }
-
-    if ((size_t)n != sizeof(*response))
-    {
-        fprintf(stderr, "[UI] Incorrect response size\n");
-        return -1;
-    }
-
-    return 0;
-}
-
-/* ================= UI PROCESS ================= */
-
 int main(void)
 {
     int socket_fd;
@@ -81,7 +52,7 @@ int main(void)
     printf("          UI PROCESS STARTED\n");
     printf("====================================\n");
 
-    /* UI -> Core: UNIX domain socket */
+    /* Connect to Core through UNIX domain socket */
 
     socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
 
@@ -119,12 +90,9 @@ int main(void)
         return 1;
     }
 
-    /* Core -> UI: POSIX message queue */
+    /* Open POSIX message queue for Core responses */
 
-    response_queue = mq_open(
-        CORE_TO_UI,
-        O_RDONLY
-    );
+    response_queue = mq_open(CORE_TO_UI, O_RDONLY);
 
     if (response_queue == (mqd_t)-1)
     {
@@ -172,8 +140,6 @@ int main(void)
 
             continue;
         }
-
-        /* Check valid command */
 
         if (request.command < 1 || request.command > 13)
         {
@@ -323,7 +289,7 @@ int main(void)
         printf("Value 1     : %d\n", request.value1);
         printf("Value 2     : %d\n", request.value2);
 
-        /* Send command to Core through the socket */
+        /* Send command through UNIX domain socket */
 
         if (send_all(
                 socket_fd,
@@ -336,12 +302,24 @@ int main(void)
 
         printf("\n[UI] Command sent to Core successfully\n");
 
-        /* Wait for Core response through POSIX message queue */
+        /* Receive Core response through POSIX message queue */
 
-        if (receive_response(
-                response_queue,
-                &response) == -1)
+        ssize_t n = mq_receive(
+            response_queue,
+            (char *)&response,
+            sizeof(response),
+            NULL
+        );
+
+        if (n == -1)
         {
+            perror("[UI] mq_receive");
+            break;
+        }
+
+        if ((size_t)n != sizeof(response))
+        {
+            fprintf(stderr, "[UI] Incorrect response size\n");
             break;
         }
 
@@ -357,4 +335,19 @@ int main(void)
 
         printf("Message : %s\n", response.message);
 
-        if
+        if (response.result != -999999)
+            printf("Result  : %d\n", response.result);
+
+        printf("====================================\n");
+
+        if (request.command == 13)
+            break;
+    }
+
+    mq_close(response_queue);
+    close(socket_fd);
+
+    printf("\n[UI] Process terminated\n");
+
+    return 0;
+}
