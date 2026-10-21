@@ -1,5 +1,3 @@
-#define _POSIX_C_SOURCE 200809L
-
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -8,17 +6,23 @@
 
 #include "ipc.h"
 
-static int read_all(int fd, void *buffer, size_t len)
+static int read_all(int fd, void *buffer, size_t length)
 {
     size_t received = 0;
-    char *p = (char *)buffer;
+    char *p = buffer;
 
-    while (received < len)
+    while (received < length)
     {
-        ssize_t n = read(fd, p + received, len - received);
+        ssize_t n = read(fd, p + received, length - received);
 
         if (n == 0)
-            return 0;
+        {
+            if (received == 0)
+                return 0;
+
+            fprintf(stderr, "[LOGGER] Incomplete message\n");
+            return -1;
+        }
 
         if (n < 0)
         {
@@ -39,11 +43,7 @@ int main(void)
     int fifo_fd;
     LogMessage message;
 
-    printf("\n");
-    printf("====================================\n");
-    printf("       LOGGER PROCESS STARTED\n");
-    printf("====================================\n");
-
+    printf("========== LOGGER PROCESS ==========\n");
     printf("[LOGGER] Waiting for Core's named FIFO...\n");
 
     fifo_fd = open(FIFO_PATH, O_RDONLY);
@@ -54,62 +54,39 @@ int main(void)
         return 1;
     }
 
-    printf("[LOGGER] Named FIFO connected successfully\n");
-    printf("[LOGGER] Waiting for messages from Core...\n");
+    printf("[LOGGER] Connected. Waiting for logs...\n");
 
     while (1)
     {
         memset(&message, 0, sizeof(message));
 
-        int read_result = read_all(
-            fifo_fd,
-            &message,
-            sizeof(message)
-        );
+        int result = read_all(fifo_fd, &message, sizeof(message));
 
-        if (read_result == 0)
+        if (result == 0)
         {
-            printf("[LOGGER] Core closed the FIFO\n");
+            printf("[LOGGER] Core closed the FIFO.\n");
             break;
         }
 
-        if (read_result == -1)
+        if (result == -1)
         {
-            perror("[LOGGER] read FIFO");
+            perror("[LOGGER] FIFO read");
             break;
         }
 
-        printf("\n");
-        printf("====================================\n");
-        printf("           LOGGER OUTPUT\n");
-        printf("====================================\n");
+        message.message[MAX_MESSAGE - 1] = '\0';
 
-        if (message.status == 0)
-            printf("Status  : SUCCESS\n");
-        else
-            printf("Status  : ERROR\n");
-
+        printf("\n========== OPERATION LOG ==========\n");
+        printf("Status  : %s\n",
+               message.status == 0 ? "SUCCESS" : "ERROR");
         printf("Message : %s\n", message.message);
 
         if (message.result != -999999)
             printf("Result  : %d\n", message.result);
-
-        printf("====================================\n");
-
-        if (strcmp(
-                message.message,
-                "Core process shutting down") == 0)
-        {
-            printf("\n[LOGGER] Shutdown message received\n");
-            break;
-        }
-
-        printf("[LOGGER] Waiting for next message...\n");
     }
 
     close(fifo_fd);
 
-    printf("\n[LOGGER] Process terminated\n");
-
+    printf("[LOGGER] Terminated\n");
     return 0;
 }
