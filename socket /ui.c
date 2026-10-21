@@ -1,30 +1,28 @@
-#define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <mqueue.h>
 
 #include "ipc.h"
 
-static int send_all(int fd, const void *buffer, size_t len)
+static int send_all(int fd, const void *buffer, size_t length)
 {
     size_t sent = 0;
-    const char *p = (const char *)buffer;
+    const char *p = buffer;
 
-    while (sent < len)
+    while (sent < length)
     {
-        ssize_t n = send(fd, p + sent, len - sent, 0);
+        ssize_t n = send(fd, p + sent, length - sent, 0);
 
         if (n < 0)
         {
             if (errno == EINTR)
                 continue;
-
             return -1;
         }
 
@@ -37,22 +35,59 @@ static int send_all(int fd, const void *buffer, size_t len)
     return 0;
 }
 
+static int read_integer(const char *prompt, int *value)
+{
+    int ch;
+
+    printf("%s", prompt);
+    fflush(stdout);
+
+    if (scanf("%d", value) == 1)
+        return 0;
+
+    while ((ch = getchar()) != '\n' && ch != EOF)
+        ;
+
+    printf("[UI] Please enter a valid integer.\n");
+    return -1;
+}
+
+static int receive_response(mqd_t mq, LogMessage *response)
+{
+    ssize_t n;
+
+    do
+    {
+        n = mq_receive(mq, (char *)response,
+                       sizeof(*response), NULL);
+    } while (n == -1 && errno == EINTR);
+
+    if (n == -1)
+    {
+        perror("[UI] mq_receive");
+        return -1;
+    }
+
+    if ((size_t)n != sizeof(*response))
+    {
+        fprintf(stderr, "[UI] Invalid response size\n");
+        return -1;
+    }
+
+    response->message[MAX_MESSAGE - 1] = '\0';
+    return 0;
+}
+
 int main(void)
 {
     int socket_fd;
-    mqd_t response_queue;
-
+    int choice;
+    mqd_t mq;
     struct sockaddr_un address;
-
     CoreMessage request;
     LogMessage response;
 
-    printf("\n");
-    printf("====================================\n");
-    printf("          UI PROCESS STARTED\n");
-    printf("====================================\n");
-
-    /* Connect to Core through UNIX domain socket */
+    printf("========== UI PROCESS ==========\n");
 
     socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
 
@@ -63,56 +98,37 @@ int main(void)
     }
 
     memset(&address, 0, sizeof(address));
-
     address.sun_family = AF_UNIX;
 
-    snprintf(
-        address.sun_path,
-        sizeof(address.sun_path),
-        "%s",
-        SOCKET_PATH
-    );
+    snprintf(address.sun_path, sizeof(address.sun_path),
+             "%s", SOCKET_PATH);
 
-    if (connect(
-            socket_fd,
-            (struct sockaddr *)&address,
-            sizeof(address)) == -1)
+    if (connect(socket_fd, (struct sockaddr *)&address,
+                sizeof(address)) == -1)
     {
-        perror("[UI] connect to Core socket");
-
+        perror("[UI] connect to Core");
         close(socket_fd);
-
-        fprintf(
-            stderr,
-            "[UI] Start Core first, then Logger, then UI.\n"
-        );
-
+        fprintf(stderr, "[UI] Start Core and Logger first.\n");
         return 1;
     }
 
-    /* Open POSIX message queue for Core responses */
+    mq = mq_open(CORE_TO_UI, O_RDONLY);
 
-    response_queue = mq_open(CORE_TO_UI, O_RDONLY);
-
-    if (response_queue == (mqd_t)-1)
+    if (mq == (mqd_t)-1)
     {
-        perror("[UI] mq_open CORE_TO_UI");
+        perror("[UI] mq_open");
         close(socket_fd);
         return 1;
     }
 
-    printf("[UI] UNIX domain socket connected successfully\n");
-    printf("[UI] POSIX message queue opened successfully\n");
+    printf("[UI] Socket connected\n");
+    printf("[UI] POSIX message queue connected\n");
 
     while (1)
     {
         memset(&request, 0, sizeof(request));
 
-        printf("\n");
-        printf("====================================\n");
-        printf("       MULTI-PROCESS SIMULATOR\n");
-        printf("====================================\n");
-
+        printf("\n========== MULTI-PROCESS SIMULATOR ==========\n");
         printf("1. ADD\n");
         printf("2. SUBTRACT\n");
         printf("3. MULTIPLY\n");
@@ -127,227 +143,119 @@ int main(void)
         printf("12. QUEUE PEEK\n");
         printf("13. EXIT\n");
 
-        printf("\nEnter your choice: ");
-
-        if (scanf("%d", &request.command) != 1)
-        {
-            printf("[UI] Invalid input.\n");
-
-            int ch;
-
-            while ((ch = getchar()) != '\n' && ch != EOF)
-                ;
-
+        if (read_integer("Enter your choice: ", &choice) == -1)
             continue;
-        }
 
-        if (request.command < 1 || request.command > 13)
+        if (choice < 1 || choice > 13)
         {
             printf("[UI] Invalid choice.\n");
             continue;
         }
 
-        /* ================= EXIT ================= */
+        request.command = choice;
 
-        if (request.command == 13)
+        switch (choice)
         {
-            strcpy(request.instruction, "EXIT");
-        }
-
-        /* ================= CPU OPERATIONS ================= */
-
-        else if (request.command >= 1 && request.command <= 4)
-        {
-            if (request.command == 1)
+            case 1:
                 strcpy(request.instruction, "ADD");
-
-            else if (request.command == 2)
+                break;
+            case 2:
                 strcpy(request.instruction, "SUB");
-
-            else if (request.command == 3)
+                break;
+            case 3:
                 strcpy(request.instruction, "MUL");
-
-            else
+                break;
+            case 4:
                 strcpy(request.instruction, "DIV");
-
-            printf("Enter value 1: ");
-
-            if (scanf("%d", &request.value1) != 1)
-            {
-                printf("[UI] Invalid integer.\n");
-
-                int ch;
-
-                while ((ch = getchar()) != '\n' && ch != EOF)
-                    ;
-
-                continue;
-            }
-
-            printf("Enter value 2: ");
-
-            if (scanf("%d", &request.value2) != 1)
-            {
-                printf("[UI] Invalid integer.\n");
-
-                int ch;
-
-                while ((ch = getchar()) != '\n' && ch != EOF)
-                    ;
-
-                continue;
-            }
+                break;
+            case 5:
+                strcpy(request.instruction, "STORE");
+                break;
+            case 6:
+                strcpy(request.instruction, "LOAD");
+                break;
+            case 7:
+                strcpy(request.instruction, "PUSH");
+                break;
+            case 8:
+                strcpy(request.instruction, "POP");
+                break;
+            case 9:
+                strcpy(request.instruction, "PEEK");
+                break;
+            case 10:
+                strcpy(request.instruction, "ENQUEUE");
+                break;
+            case 11:
+                strcpy(request.instruction, "DEQUEUE");
+                break;
+            case 12:
+                strcpy(request.instruction, "QUEUE_PEEK");
+                break;
+            case 13:
+                strcpy(request.instruction, "EXIT");
+                break;
         }
 
-        /* ================= STORE ================= */
-
-        else if (request.command == 5)
+        if (choice >= 1 && choice <= 4)
         {
-            strcpy(request.instruction, "STORE");
-
-            printf("Enter memory address: ");
-
-            if (scanf("%d", &request.value1) != 1)
+            if (read_integer("Enter value 1: ",
+                             &request.value1) == -1)
                 continue;
 
-            printf("Enter value: ");
-
-            if (scanf("%d", &request.value2) != 1)
+            if (read_integer("Enter value 2: ",
+                             &request.value2) == -1)
                 continue;
         }
-
-        /* ================= LOAD ================= */
-
-        else if (request.command == 6)
+        else if (choice == 5)
         {
-            strcpy(request.instruction, "LOAD");
+            if (read_integer("Enter memory address (0-99): ",
+                             &request.value1) == -1)
+                continue;
 
-            printf("Enter memory address: ");
-
-            if (scanf("%d", &request.value1) != 1)
+            if (read_integer("Enter value: ",
+                             &request.value2) == -1)
                 continue;
         }
-
-        /* ================= PUSH ================= */
-
-        else if (request.command == 7)
+        else if (choice == 6)
         {
-            strcpy(request.instruction, "PUSH");
-
-            printf("Enter value: ");
-
-            if (scanf("%d", &request.value1) != 1)
+            if (read_integer("Enter memory address (0-99): ",
+                             &request.value1) == -1)
+                continue;
+        }
+        else if (choice == 7 || choice == 10)
+        {
+            if (read_integer("Enter value: ",
+                             &request.value1) == -1)
                 continue;
         }
 
-        /* ================= POP ================= */
+        printf("\n[UI] Sending: %s\n", request.instruction);
 
-        else if (request.command == 8)
-        {
-            strcpy(request.instruction, "POP");
-        }
-
-        /* ================= PEEK ================= */
-
-        else if (request.command == 9)
-        {
-            strcpy(request.instruction, "PEEK");
-        }
-
-        /* ================= ENQUEUE ================= */
-
-        else if (request.command == 10)
-        {
-            strcpy(request.instruction, "ENQUEUE");
-
-            printf("Enter value: ");
-
-            if (scanf("%d", &request.value1) != 1)
-                continue;
-        }
-
-        /* ================= DEQUEUE ================= */
-
-        else if (request.command == 11)
-        {
-            strcpy(request.instruction, "DEQUEUE");
-        }
-
-        /* ================= QUEUE PEEK ================= */
-
-        else if (request.command == 12)
-        {
-            strcpy(request.instruction, "QUEUE_PEEK");
-        }
-
-        printf("\n");
-        printf("====================================\n");
-        printf("             UI COMMAND\n");
-        printf("====================================\n");
-
-        printf("Instruction : %s\n", request.instruction);
-        printf("Value 1     : %d\n", request.value1);
-        printf("Value 2     : %d\n", request.value2);
-
-        /* Send command through UNIX domain socket */
-
-        if (send_all(
-                socket_fd,
-                &request,
-                sizeof(request)) == -1)
+        if (send_all(socket_fd, &request, sizeof(request)) == -1)
         {
             perror("[UI] socket send");
             break;
         }
 
-        printf("\n[UI] Command sent to Core successfully\n");
-
-        /* Receive Core response through POSIX message queue */
-
-        ssize_t n = mq_receive(
-            response_queue,
-            (char *)&response,
-            sizeof(response),
-            NULL
-        );
-
-        if (n == -1)
-        {
-            perror("[UI] mq_receive");
+        if (receive_response(mq, &response) == -1)
             break;
-        }
 
-        if ((size_t)n != sizeof(response))
-        {
-            fprintf(stderr, "[UI] Incorrect response size\n");
-            break;
-        }
-
-        printf("\n");
-        printf("====================================\n");
-        printf("            CORE RESPONSE\n");
-        printf("====================================\n");
-
-        if (response.status == 0)
-            printf("Status  : SUCCESS\n");
-        else
-            printf("Status  : ERROR\n");
-
+        printf("\n========== CORE RESPONSE ==========\n");
+        printf("Status  : %s\n",
+               response.status == 0 ? "SUCCESS" : "ERROR");
         printf("Message : %s\n", response.message);
 
         if (response.result != -999999)
             printf("Result  : %d\n", response.result);
 
-        printf("====================================\n");
-
-        if (request.command == 13)
+        if (choice == 13)
             break;
     }
 
-    mq_close(response_queue);
+    mq_close(mq);
     close(socket_fd);
 
-    printf("\n[UI] Process terminated\n");
-
+    printf("[UI] Terminated\n");
     return 0;
 }
