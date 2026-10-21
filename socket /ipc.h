@@ -1,4 +1,3 @@
-
 #ifndef IPC_H
 #define IPC_H
 
@@ -8,8 +7,8 @@
 
 #define MAX_MESSAGE 256
 #define MEMORY_SIZE 100
-#define STACK_SIZE 50
-#define QUEUE_SIZE 50
+#define STACK_SIZE 100
+#define QUEUE_SIZE 100
 
 typedef struct
 {
