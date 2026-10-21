@@ -1,0 +1,25 @@
+#ifndef IPC_H
+#define IPC_H
+
+#define SOCKET_PATH "/tmp/ipc_core_socket"
+#define CORE_TO_UI "/core_to_ui"
+#define FIFO_PATH "/tmp/core_to_logger_fifo"
+
+#define MAX_MESSAGE 256
+
+typedef struct
+{
+    int command;
+    int value1;
+    int value2;
+    char instruction[MAX_MESSAGE];
+} CoreMessage;
+
+typedef struct
+{
+    int status;
+    int result;
+    char message[MAX_MESSAGE];
+} LogMessage;
+
+#endif
