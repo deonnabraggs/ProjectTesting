@@ -135,7 +135,7 @@ int main(void)
         printf("Message : %s\n", response.message);
         if (response.result != -999999)
             printf("Result  : %d\n", response.result);
-        printf("====================================\n");
+        printf("=====================================\n");
 
         if (request.command == 13)
             break;
