@@ -1,149 +1,236 @@
 
-#include "ipc.h"
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <mqueue.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <mqueue.h>
-#include <limits.h>
+#include <unistd.h>
+#include "ipc.h"
 
-static int read_int(const char *prompt, int *value)
+static int write_full(int fd, const void *buffer, size_t length)
 {
-    char line[128], extra;
-    long n;
+    size_t sent = 0;
+
+    while (sent < length) {
+        ssize_t n = write(
+            fd, (const char *)buffer + sent, length - sent
+        );
+
+        if (n < 0) {
+            if (errno == EINTR)
+                continue;
+            return -1;
+        }
+
+        sent += (size_t)n;
+    }
+
+    return 0;
+}
+
+static void print_menu(void)
+{
+    printf("\n========== WEEK 4 SIMULATOR ==========\n");
+    printf("1. Add\n");
+    printf("2. Subtract\n");
+    printf("3. Multiply\n");
+    printf("4. Divide\n");
+    printf("5. Stack Push\n");
+    printf("6. Stack Pop\n");
+    printf("7. Queue Enqueue\n");
+    printf("8. Queue Dequeue\n");
+    printf("9. Memory Store\n");
+    printf("10. Memory Load\n");
+    printf("11. Stack Peek\n");
+    printf("12. Queue Peek\n");
+    printf("13. Exit\n");
+    printf("======================================\n");
+}
+
+static int read_integer(const char *prompt, int *value)
+{
+    char line[128];
+    char extra;
 
     printf("%s", prompt);
     fflush(stdout);
 
-    if (!fgets(line, sizeof(line), stdin)) return 0;
+    if (fgets(line, sizeof(line), stdin) == NULL)
+        return 0;
 
-    if (sscanf(line, " %ld %c", &n, &extra) != 1 ||
-        n < INT_MIN || n > INT_MAX) {
-        printf("Invalid integer. Try again.\n");
+    if (sscanf(line, " %d %c", value, &extra) != 1) {
+        printf("Invalid input. Please enter a whole number.\n");
         return -1;
     }
 
-    *value = (int)n;
     return 1;
-}
-
-static int send_full(int fd, const void *buf, size_t size)
-{
-    size_t sent = 0;
-    while (sent < size) {
-        ssize_t n = write(fd, (const char *)buf + sent, size - sent);
-        if (n < 0) {
-            if (errno == EINTR) continue;
-            return -1;
-        }
-        if (n == 0) return -1;
-        sent += (size_t)n;
-    }
-    return 0;
-}
-
-static void menu(void)
-{
-    printf("\n========== WEEK 4 SIMULATOR ==========\n");
-    printf("1. Add\n2. Subtract\n3. Multiply\n4. Divide\n");
-    printf("5. Stack Push\n6. Stack Pop\n7. Queue Enqueue\n");
-    printf("8. Queue Dequeue\n9. Memory Store\n10. Memory Load\n");
-    printf("11. Stack Peek\n12. Queue Peek\n13. Exit\n");
-    printf("======================================\n");
 }
 
 int main(void)
 {
-    mqd_t mq = mq_open(MQ_NAME, O_RDONLY);
-    if (mq == (mqd_t)-1) {
-        perror("UI: Start Core and Logger first");
-        return 1;
+    int socket_fd = -1;
+    mqd_t response_queue = (mqd_t)-1;
+
+    struct sockaddr_un address;
+    struct mq_attr attributes;
+
+    int running = 1;
+
+    /* Create the response queue before connecting to Core. */
+    mq_unlink(MQ_NAME);
+
+    memset(&attributes, 0, sizeof(attributes));
+    attributes.mq_maxmsg = 10;
+    attributes.mq_msgsize = sizeof(Response);
+
+    response_queue = mq_open(
+        MQ_NAME, O_CREAT | O_RDONLY, 0666, &attributes
+    );
+
+    if (response_queue == (mqd_t)-1) {
+        perror("UI: Could not create POSIX message queue");
+        return EXIT_FAILURE;
     }
 
-    int sock = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (sock == -1) {
-        perror("UI socket");
-        mq_close(mq);
-        return 1;
+    socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+
+    if (socket_fd == -1) {
+        perror("UI: socket failed");
+        mq_close(response_queue);
+        mq_unlink(MQ_NAME);
+        return EXIT_FAILURE;
     }
 
-    struct sockaddr_un addr = {0};
-    addr.sun_family = AF_UNIX;
-    snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", SOCKET_PATH);
+    memset(&address, 0, sizeof(address));
+    address.sun_family = AF_UNIX;
 
-    if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-        perror("UI connect");
-        close(sock);
-        mq_close(mq);
-        return 1;
+    snprintf(address.sun_path, sizeof(address.sun_path),
+             "%s", SOCKET_PATH);
+
+    if (connect(socket_fd, (struct sockaddr *)&address,
+                sizeof(address)) == -1) {
+        perror("UI: Could not connect to Core. Start Core and Logger first");
+        close(socket_fd);
+        mq_close(response_queue);
+        mq_unlink(MQ_NAME);
+        return EXIT_FAILURE;
     }
 
-    printf("UI: Connected to Core.\n");
+    printf("UI: Connected to Core through Unix domain socket.\n");
 
-    while (1) {
-        CoreMessage req = {0};
-        CoreResponse res;
-        int choice, rc;
+    while (running) {
+        Request request;
+        Response response;
+        int input_status;
 
-        menu();
-        rc = read_int("Select option (1-13): ", &choice);
-        if (rc == 0) break;
-        if (rc < 0) continue;
+        memset(&request, 0, sizeof(request));
 
-        if (choice < 1 || choice > 13) {
-            printf("Choose a number from 1 to 13.\n");
+        print_menu();
+
+        input_status = read_integer(
+            "Select option (1-13): ", &request.option
+        );
+
+        if (input_status == 0)
+            break;
+
+        if (input_status < 0)
+            continue;
+
+        if (request.option < 1 || request.option > 13) {
+            printf("Invalid option. Choose a number from 1 to 13.\n");
             continue;
         }
 
-        req.command = choice;
+        if (request.option >= 1 && request.option <= 4) {
+            input_status = read_integer(
+                "Enter first value: ", &request.value1
+            );
 
-        if (choice >= 1 && choice <= 4) {
-            rc = read_int("Enter first number: ", &req.value1);
-            if (rc <= 0) { if (!rc) break; else continue; }
-            rc = read_int("Enter second number: ", &req.value2);
-            if (rc <= 0) { if (!rc) break; else continue; }
-        } else if (choice == 5 || choice == 7) {
-            rc = read_int("Enter value: ", &req.value1);
-            if (rc <= 0) { if (!rc) break; else continue; }
-        } else if (choice == 9) {
-            rc = read_int("Enter memory address (0-99): ", &req.value1);
-            if (rc <= 0) { if (!rc) break; else continue; }
-            rc = read_int("Enter value to store: ", &req.value2);
-            if (rc <= 0) { if (!rc) break; else continue; }
-        } else if (choice == 10) {
-            rc = read_int("Enter memory address (0-99): ", &req.value1);
-            if (rc <= 0) { if (!rc) break; else continue; }
+            if (input_status == 0)
+                break;
+            if (input_status < 0)
+                continue;
+
+            input_status = read_integer(
+                "Enter second value: ", &request.value2
+            );
+
+            if (input_status == 0)
+                break;
+            if (input_status < 0)
+                continue;
+
+        } else if (request.option == 5 || request.option == 7) {
+            input_status = read_integer(
+                "Enter value: ", &request.value1
+            );
+
+            if (input_status == 0)
+                break;
+            if (input_status < 0)
+                continue;
+
+        } else if (request.option == 9) {
+            input_status = read_integer(
+                "Enter memory address (0-9): ", &request.value1
+            );
+
+            if (input_status == 0)
+                break;
+            if (input_status < 0)
+                continue;
+
+            input_status = read_integer(
+                "Enter value to store: ", &request.value2
+            );
+
+            if (input_status == 0)
+                break;
+            if (input_status < 0)
+                continue;
+
+        } else if (request.option == 10) {
+            input_status = read_integer(
+                "Enter memory address (0-9): ", &request.value1
+            );
+
+            if (input_status == 0)
+                break;
+            if (input_status < 0)
+                continue;
         }
 
-        if (send_full(sock, &req, sizeof(req)) == -1) {
-            perror("UI send");
+        if (write_full(socket_fd, &request, sizeof(request)) == -1) {
+            perror("UI: Failed to send request to Core");
             break;
         }
 
-        ssize_t n;
-        do {
-            n = mq_receive(mq, (char *)&res, sizeof(res), NULL);
-        } while (n == -1 && errno == EINTR);
-
-        if (n != sizeof(res)) {
-            perror("UI mq_receive");
+        if (mq_receive(response_queue, (char *)&response,
+                       sizeof(response), NULL) == -1) {
+            perror("UI: Failed to receive response from Core message queue");
             break;
         }
 
         printf("\n------------- RESULT -------------\n");
-        printf("Status : %s\n", res.status ? "SUCCESS" : "ERROR");
-        printf("Message: %s\n", res.message);
-        if (res.status && choice != CMD_EXIT)
-            printf("Result : %d\n", res.result);
+        printf("Status : %s\n",
+               response.status ? "SUCCESS" : "ERROR");
+        printf("Message: %s\n", response.message);
+        printf("Result : %d\n", response.result);
         printf("----------------------------------\n");
 
-        if (choice == CMD_EXIT) break;
+        if (request.option == 13)
+            running = 0;
     }
 
-    close(sock);
-    mq_close(mq);
-    printf("UI: Stopped.\n");
-    return 0;
+    close(socket_fd);
+    mq_close(response_queue);
+    mq_unlink(MQ_NAME);
+
+    printf("UI: Disconnected.\n");
+
+    return EXIT_SUCCESS;
 }
