@@ -1,33 +1,64 @@
+
 # Multi-Process Simulator – Architectural Diagram
 
 ## Architecture Overview
 
-The Multi-Process Simulator consists of three independent processes: UI Process, Core Process, and Logger Process. They communicate using three different Inter-Process Communication (IPC) techniques.
+The Multi-Process Simulator consists of three independent processes: UI Process, Core Process, and Logger Process. They communicate using three Inter-Process Communication (IPC) techniques.
 
-- UI Process: Accepts user input, displays the menu, sends requests, and displays results.
-- Core Process: Executes instructions, performs arithmetic operations, and manages memory, stack, and queue operations.
-- Logger Process: Receives log messages from the Core Process and displays execution details.
-- Unix Domain Socket: Transfers requests from the UI to the Core.
-- FIFO (Named Pipe): Transfers log messages from the Core to the Logger.
-- POSIX Message Queue: Transfers responses from the Core to the UI.
+- **UI Process:** Accepts user input, sends requests, and displays results.
+- **Core Process:** Executes operations and manages CPU execution, memory, stack, and queue.
+- **Logger Process:** Receives and displays execution logs.
+- **Unix Domain Socket:** Transfers requests from the UI to the Core.
+- **POSIX Message Queue:** Transfers responses from the Core to the UI.
+- **FIFO (Named Pipe):** Transfers log messages from the Core to the Logger.
 
 ## Architectural Diagram
 
-\#chatgpt-mermaid-\_r_2gv\_{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:16px;fill:rgb(237, 237, 237);}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#chatgpt-mermaid-\_r_2gv\_ .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#chatgpt-mermaid-\_r_2gv\_ .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#chatgpt-mermaid-\_r_2gv\_ .error-icon{fill:rgb(48, 48, 48);}#chatgpt-mermaid-\_r_2gv\_ .error-text{fill:rgb(237, 237, 237);stroke:rgb(237, 237, 237);}#chatgpt-mermaid-\_r_2gv\_ .edge-thickness-normal{stroke-width:1px;}#chatgpt-mermaid-\_r_2gv\_ .edge-thickness-thick{stroke-width:3.5px;}#chatgpt-mermaid-\_r_2gv\_ .edge-pattern-solid{stroke-dasharray:0;}#chatgpt-mermaid-\_r_2gv\_ .edge-thickness-invisible{stroke-width:0;fill:none;}#chatgpt-mermaid-\_r_2gv\_ .edge-pattern-dashed{stroke-dasharray:3;}#chatgpt-mermaid-\_r_2gv\_ .edge-pattern-dotted{stroke-dasharray:2;}#chatgpt-mermaid-\_r_2gv\_ .marker{fill:rgb(175, 175, 175);stroke:rgb(175, 175, 175);}#chatgpt-mermaid-\_r_2gv\_ .marker.cross{stroke:rgb(175, 175, 175);}#chatgpt-mermaid-\_r_2gv\_ svg{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:16px;}#chatgpt-mermaid-\_r_2gv\_ p{margin:0;}#chatgpt-mermaid-\_r_2gv\_ .label{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";color:rgb(237, 237, 237);}#chatgpt-mermaid-\_r_2gv\_ .cluster-label text{fill:rgb(237, 237, 237);}#chatgpt-mermaid-\_r_2gv\_ .cluster-label span{color:rgb(237, 237, 237);}#chatgpt-mermaid-\_r_2gv\_ .cluster-label span p{background-color:transparent;}#chatgpt-mermaid-\_r_2gv\_ .label text,#chatgpt-mermaid-\_r_2gv\_ span{fill:rgb(237, 237, 237);color:rgb(237, 237, 237);}#chatgpt-mermaid-\_r_2gv\_ .node rect,#chatgpt-mermaid-\_r_2gv\_ .node circle,#chatgpt-mermaid-\_r_2gv\_ .node ellipse,#chatgpt-mermaid-\_r_2gv\_ .node polygon,#chatgpt-mermaid-\_r_2gv\_ .node path{fill:rgb(9, 23, 44);stroke:rgb(31, 78, 148);stroke-width:1px;}#chatgpt-mermaid-\_r_2gv\_ .rough-node .label text,#chatgpt-mermaid-\_r_2gv\_ .node .label text,#chatgpt-mermaid-\_r_2gv\_ .image-shape .label,#chatgpt-mermaid-\_r_2gv\_ .icon-shape .label{text-anchor:middle;}#chatgpt-mermaid-\_r_2gv\_ .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#chatgpt-mermaid-\_r_2gv\_ .rough-node .label,#chatgpt-mermaid-\_r_2gv\_ .node .label,#chatgpt-mermaid-\_r_2gv\_ .image-shape .label,#chatgpt-mermaid-\_r_2gv\_ .icon-shape .label{text-align:center;}#chatgpt-mermaid-\_r_2gv\_ .node.clickable{cursor:pointer;}#chatgpt-mermaid-\_r_2gv\_ .root .anchor path{fill:rgb(175, 175, 175)!important;stroke-width:0;stroke:rgb(175, 175, 175);}#chatgpt-mermaid-\_r_2gv\_ .arrowheadPath{fill:rgb(175, 175, 175);}#chatgpt-mermaid-\_r_2gv\_ .edgePath .path{stroke:rgb(175, 175, 175);stroke-width:1px;}#chatgpt-mermaid-\_r_2gv\_ .flowchart-link{stroke:rgb(175, 175, 175);fill:none;}#chatgpt-mermaid-\_r_2gv\_ .edgeLabel{background-color:rgb(0, 0, 0);text-align:center;}#chatgpt-mermaid-\_r_2gv\_ .edgeLabel p{background-color:rgb(0, 0, 0);}#chatgpt-mermaid-\_r_2gv\_ .edgeLabel rect{opacity:0.5;background-color:rgb(0, 0, 0);fill:rgb(0, 0, 0);}#chatgpt-mermaid-\_r_2gv\_ .labelBkg{background-color:rgba(0, 0, 0, 0.5);}#chatgpt-mermaid-\_r_2gv\_ .cluster rect{fill:rgb(48, 48, 48);stroke:rgba(255, 255, 255, 0.15);stroke-width:1px;}#chatgpt-mermaid-\_r_2gv\_ .cluster text{fill:rgb(237, 237, 237);}#chatgpt-mermaid-\_r_2gv\_ .cluster span{color:rgb(237, 237, 237);}#chatgpt-mermaid-\_r_2gv\_ div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:12px;background:rgb(48, 48, 48);border:1px solid rgba(255, 255, 255, 0.15);border-radius:2px;pointer-events:none;z-index:100;}#chatgpt-mermaid-\_r_2gv\_ .flowchartTitleText{text-anchor:middle;font-size:18px;fill:rgb(237, 237, 237);}#chatgpt-mermaid-\_r_2gv\_ rect.text{fill:none;stroke-width:0;}#chatgpt-mermaid-\_r_2gv\_ .icon-shape,#chatgpt-mermaid-\_r_2gv\_ .image-shape{background-color:rgb(0, 0, 0);text-align:center;}#chatgpt-mermaid-\_r_2gv\_ .icon-shape p,#chatgpt-mermaid-\_r_2gv\_ .image-shape p{background-color:rgb(0, 0, 0);padding:2px;}#chatgpt-mermaid-\_r_2gv\_ .icon-shape .label rect,#chatgpt-mermaid-\_r_2gv\_ .image-shape .label rect{opacity:0.5;background-color:rgb(0, 0, 0);fill:rgb(0, 0, 0);}#chatgpt-mermaid-\_r_2gv\_ .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#chatgpt-mermaid-\_r_2gv\_ .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#chatgpt-mermaid-\_r_2gv\_ .node .neo-node{stroke:rgb(31, 78, 148);}#chatgpt-mermaid-\_r_2gv\_ [data-look="neo"].node rect,#chatgpt-mermaid-\_r_2gv\_ [data-look="neo"].cluster rect,#chatgpt-mermaid-\_r_2gv\_ [data-look="neo"].node polygon{stroke:url(#chatgpt-mermaid-\_r_2gv\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_2gv\_ [data-look="neo"].swimlane.cluster rect{filter:none;}#chatgpt-mermaid-\_r_2gv\_ [data-look="neo"].node path{stroke:url(#chatgpt-mermaid-\_r_2gv\_-gradient);stroke-width:1px;}#chatgpt-mermaid-\_r_2gv\_ [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_2gv\_ [data-look="neo"].node .neo-line path{stroke:rgb(31, 78, 148);filter:none;}#chatgpt-mermaid-\_r_2gv\_ [data-look="neo"].node circle{stroke:url(#chatgpt-mermaid-\_r_2gv\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_2gv\_ [data-look="neo"].node circle .state-start{fill:#000000;}#chatgpt-mermaid-\_r_2gv\_ [data-look="neo"].icon-shape .icon{fill:url(#chatgpt-mermaid-\_r_2gv\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_2gv\_ [data-look="neo"].icon-shape .icon-neo path{stroke:url(#chatgpt-mermaid-\_r_2gv\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_2gv\_ .node text{font-size:14px;font-weight:600;letter-spacing:normal;fill:rgb(153, 206, 255);}#chatgpt-mermaid-\_r_2gv\_ .edgeLabels text{font-size:13px;font-weight:600;letter-spacing:-0.08px;fill:rgb(153, 206, 255);}#chatgpt-mermaid-\_r_2gv\_ .node tspan[font-weight="normal"],#chatgpt-mermaid-\_r_2gv\_ .edgeLabels tspan[font-weight="normal"]{font-weight:600;}#chatgpt-mermaid-\_r_2gv\_ .edgeLabel .label rect{opacity:1;rx:13px;ry:13px;fill:rgb(0, 14, 26);stroke:rgb(26, 62, 95);stroke-width:1px;}#chatgpt-mermaid-\_r_2gv\_ .node rect,#chatgpt-mermaid-\_r_2gv\_ .node circle,#chatgpt-mermaid-\_r_2gv\_ .node ellipse,#chatgpt-mermaid-\_r_2gv\_ .node polygon,#chatgpt-mermaid-\_r_2gv\_ .node path{fill:rgb(0, 40, 77);stroke:rgba(255, 255, 255, 0.1);stroke-width:1px;}#chatgpt-mermaid-\_r_2gv\_ .node rect{rx:16px;ry:16px;}#chatgpt-mermaid-\_r_2gv\_ .node.mermaid-decision .label-container{fill:rgb(0, 14, 26);stroke:rgb(26, 62, 95);stroke-dasharray:2,2;}#chatgpt-mermaid-\_r_2gv\_ .edgePaths .flowchart-link{stroke:rgb(175, 175, 175);stroke-width:1px;stroke-linecap:round;stroke-linejoin:round;}#chatgpt-mermaid-\_r_2gv\_ .marker{fill:rgb(175, 175, 175);stroke:rgb(175, 175, 175);}#chatgpt-mermaid-\_r_2gv\_ :root{--mermaid-font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";}Core Process ComponentsCPU / Instruction ExecutionMemory ManagementStack ManagementQueue ManagementUI ProcessUser Input and MenuCore ProcessCPU Execution and ProcessingLogger ProcessLogging and MonitoringUnix Domain SocketFIFO / Named PipePOSIX Message Queue1. Send RequestRequest2. Send ResponseResponse / Result3. Send Log MessagesLog Messages
+```mermaid
+flowchart TB
+    UI["UI Process"]
+    CORE["Core Process"]
+    LOGGER["Logger Process"]
+
+    SOCKET["Unix Domain Socket"]
+    MQ["POSIX Message Queue"]
+    FIFO["FIFO / Named Pipe"]
+
+    UI -->|"Requests"| SOCKET
+    SOCKET --> CORE
+
+    CORE -->|"Responses"| MQ
+    MQ --> UI
+
+    CORE -->|"Log Messages"| FIFO
+    FIFO --> LOGGER
+
+    subgraph COMPONENTS["Core Process Components"]
+        CPU["CPU Execution"]
+        MEM["Memory Management"]
+        STACK["Stack Management"]
+        QUEUE["Queue Management"]
+    end
+
+    CORE --> CPU
+    CORE --> MEM
+    CORE --> STACK
+    CORE --> QUEUE
+```
 
 ## Working Flow
 
-1. The user selects an operation in the UI, such as addition, stack push, queue enqueue, or memory store.
+1. The user selects an operation from the UI menu.
 2. The UI sends the request to the Core Process through a Unix Domain Socket.
-3. The Core Process executes the requested operation using its CPU execution logic and the appropriate memory, stack, or queue component.
-4. The Core Process sends the result or status back to the UI through a POSIX Message Queue.
+3. The Core Process executes the requested operation using its CPU, memory, stack, or queue components.
+4. The Core Process sends the result or status to the UI through a POSIX Message Queue.
 5. The Core Process sends execution logs to the Logger Process through a FIFO (Named Pipe).
-6. The UI displays the result, while the Logger displays the execution logs.
+6. The UI displays the operation result, and the Logger displays execution details.
 
 ## IPC Techniques Used
 
-| IPC technique       | Communication | Purpose                         |
-| ------------------- | ------------- | ------------------------------- |
-| Unix Domain Socket  | UI → Core     | Transfers operation requests    |
-| POSIX Message Queue | Core → UI     | Transfers results and responses |
-| FIFO / Named Pipe   | Core → Logger | Transfers execution logs        |
+| IPC Technique | Communication | Purpose |
+|---|---|---|
+| Unix Domain Socket | UI → Core | Transfers operation requests |
+| POSIX Message Queue | Core → UI | Transfers results and responses |
+| FIFO (Named Pipe) | Core → Logger | Transfers execution logs |
