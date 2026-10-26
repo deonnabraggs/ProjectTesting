@@ -146,7 +146,6 @@ static void on_run_clicked(GtkButton *button, gpointer data)
         GTK_SPIN_BUTTON(frame_spin)
     );
 
-    /* Index zero is the placeholder. */
     int choice = gtk_combo_box_get_active(
         GTK_COMBO_BOX(algorithm_combo)
     );
@@ -224,7 +223,6 @@ static void on_clear_results_clicked(
     (void)button;
     (void)data;
 
-    /* Preserve both inputs; clear only the choice and output. */
     gtk_combo_box_set_active(GTK_COMBO_BOX(algorithm_combo), 0);
     clear_report();
     set_status("Results cleared. Your page string and frame count remain.");
@@ -243,41 +241,174 @@ static void on_clear_all_clicked(GtkButton *button, gpointer data)
     set_status("Everything cleared. Enter a new reference string.");
 }
 
+/* DARK THEME: colours only; simulation logic remains unchanged. */
 static void add_css(void)
 {
     const char *css =
-        "window { background-color: #0b1220; color: #f1f5f9; }"
-        "label { color: #e2e8f0; }"
-        ".title { font-size: 27px; font-weight: bold; color: #ffffff; }"
+        "window {"
+        " background-color: #080e19;"
+        " color: #f1f5f9;"
+        "}"
+
+        "label { color: #e8eef8; }"
+
+        ".title {"
+        " color: #ffffff;"
+        " font-size: 27px;"
+        " font-weight: bold;"
+        "}"
+
         ".subtitle { color: #a8bad3; font-size: 12px; }"
-        ".section { background-color: #18263c; border-radius: 12px; padding: 14px; }"
-        "entry { background-color: #0f1b2e; color: #ffffff;"
-        " border: 1px solid #526782; border-radius: 7px; padding: 10px; }"
-        "spinbutton { background-color: #0f1b2e; color: #ffffff;"
-        " border: 1px solid #526782; border-radius: 7px; padding: 6px; }"
-        "combobox { background-color: #233650; color: #ffffff;"
-        " border: 1px solid #7186a5; border-radius: 7px; padding: 5px; }"
-        "combobox button { background-color: #233650; color: #ffffff; }"
+
+        ".section {"
+        " background-color: #17263b;"
+        " border: 1px solid #344963;"
+        " border-radius: 12px;"
+        " padding: 14px;"
+        "}"
+
+        "entry {"
+        " background-color: #0b1628;"
+        " color: #ffffff;"
+        " caret-color: #ffffff;"
+        " border: 1px solid #526b8b;"
+        " border-radius: 7px;"
+        " padding: 10px;"
+        "}"
+
+        "entry:focus {"
+        " background-color: #101f35;"
+        " color: #ffffff;"
+        " border: 1px solid #8b83ff;"
+        "}"
+
+        "spinbutton {"
+        " background-color: #0b1628;"
+        " color: #ffffff;"
+        " border: 1px solid #526b8b;"
+        " border-radius: 7px;"
+        "}"
+
+        "spinbutton entry {"
+        " background-color: #0b1628;"
+        " color: #ffffff;"
+        "}"
+
+        "spinbutton button {"
+        " background-color: #263c58;"
+        " color: #ffffff;"
+        " border: 1px solid #526b8b;"
+        "}"
+
+        "spinbutton button:hover {"
+        " background-color: #405d81;"
+        " color: #ffffff;"
+        "}"
+
+        "combobox {"
+        " background-color: #1b2d46;"
+        " color: #ffffff;"
+        "}"
+
+        "combobox button {"
+        " background-color: #1b2d46;"
+        " color: #ffffff;"
+        " border: 1px solid #607b9e;"
+        " border-radius: 7px;"
+        " padding: 9px;"
+        "}"
+
+        "combobox button:hover {"
+        " background-color: #304866;"
+        " color: #ffffff;"
+        "}"
+
         "combobox arrow { color: #ffffff; }"
-        "combobox menu, menu { background-color: #18263c; color: #ffffff; }"
+
+        "combobox menu, menu {"
+        " background-color: #101d30;"
+        " color: #ffffff;"
+        "}"
+
         "combobox menu menuitem, menu menuitem {"
-        " background-color: #18263c; color: #ffffff; padding: 8px; }"
+        " background-color: #101d30;"
+        " color: #f1f5f9;"
+        " padding: 9px;"
+        "}"
+
         "combobox menu menuitem:hover, menu menuitem:hover {"
-        " background-color: #6258e8; color: #ffffff; }"
-        "button { background-color: #263a55; color: #ffffff;"
-        " border: 1px solid #617894; border-radius: 8px; padding: 10px; }"
-        "button:hover { background-color: #385273; }"
-        "button.run { background-color: #6258e8; font-weight: bold; }"
-        "button.run:hover { background-color: #776df4; }"
-        "button.danger { background-color: #713e50; }"
-        "frame { border-color: #334963; }"
-        "frame > label { color: #cbd5e1; }"
-        "textview, textview text {"
-        " background-color: #0f1b2e; color: #e2e8f0; }";
+        " background-color: #5146c8;"
+        " color: #ffffff;"
+        "}"
+
+        "button {"
+        " background-color: #263b56;"
+        " color: #ffffff;"
+        " border: 1px solid #617c9e;"
+        " border-radius: 8px;"
+        " padding: 10px;"
+        "}"
+
+        "button label { color: #ffffff; }"
+
+        "button:hover {"
+        " background-color: #3a5273;"
+        " color: #ffffff;"
+        " border-color: #9bb6d8;"
+        "}"
+
+        "button:active {"
+        " background-color: #4a6285;"
+        " color: #ffffff;"
+        "}"
+
+        "button.run {"
+        " background-color: #5146d8;"
+        " color: #ffffff;"
+        " border: 1px solid #8c84ff;"
+        " font-weight: bold;"
+        "}"
+
+        "button.run:hover {"
+        " background-color: #6b5ff0;"
+        " color: #ffffff;"
+        "}"
+
+        "button.danger {"
+        " background-color: #6c3046;"
+        " color: #ffffff;"
+        " border: 1px solid #a85d78;"
+        "}"
+
+        "button.danger:hover {"
+        " background-color: #8a3b58;"
+        " color: #ffffff;"
+        "}"
+
+        "frame { border-color: #344963; }"
+        "frame > label { color: #dce6f5; }"
+
+        "textview {"
+        " background-color: #0b1628;"
+        " color: #e8eef8;"
+        " font-family: monospace;"
+        " font-size: 12px;"
+        "}"
+
+        "textview text {"
+        " background-color: #0b1628;"
+        " color: #e8eef8;"
+        "}";
 
     GtkCssProvider *provider = gtk_css_provider_new();
+    GError *error = NULL;
 
-    gtk_css_provider_load_from_data(provider, css, -1, NULL);
+    gtk_css_provider_load_from_data(provider, css, -1, &error);
+
+    if (error != NULL) {
+        g_printerr("CSS error: %s\n", error->message);
+        g_error_free(error);
+    }
 
     gtk_style_context_add_provider_for_screen(
         gdk_screen_get_default(),
@@ -310,8 +441,6 @@ GtkWidget *create_main_window(void)
         GTK_WINDOW(window), "Page Replacement Simulator");
     gtk_window_set_default_size(GTK_WINDOW(window), 1200, 800);
     gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
-
-    /* Open maximized so the interface fills the desktop. */
     gtk_window_maximize(GTK_WINDOW(window));
 
     GtkWidget *outer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
