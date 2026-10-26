@@ -1,5 +1,5 @@
+
 #include <gtk/gtk.h>
-#include <stdlib.h>
 #include <string.h>
 #include "page_replacement.h"
 
@@ -22,7 +22,6 @@ static void clear_report(void)
 {
     GtkTextBuffer *buffer =
         gtk_text_view_get_buffer(GTK_TEXT_VIEW(output_view));
-
     gtk_text_buffer_set_text(buffer, "", -1);
 }
 
@@ -36,13 +35,12 @@ static void append_result(
 )
 {
     SimulationResult result = {0};
-
     algorithm(pages, count, frame_count, &result);
 
     g_string_append_printf(
         report,
         "\n%s\n"
-        "================================================================\n",
+        "============================================================\n",
         name
     );
 
@@ -51,7 +49,13 @@ static void append_result(
     for (int f = 0; f < frame_count; f++)
         g_string_append_printf(report, " F%-3d|", f + 1);
 
-    g_string_append(report, " Result\n");
+    g_string_append(report, " Status\n");
+    g_string_append(report, "-----+");
+
+    for (int f = 0; f < frame_count; f++)
+        g_string_append(report, "-----+");
+
+    g_string_append(report, "--------\n");
 
     for (int i = 0; i < count; i++) {
         g_string_append_printf(report, "%4d |", pages[i]);
@@ -94,7 +98,6 @@ static void append_comparison(
 )
 {
     const char *names[] = {"FIFO", "LRU", "OPTIMAL"};
-
     AlgorithmFunction algorithms[] = {
         run_fifo, run_lru, run_optimal
     };
@@ -102,14 +105,13 @@ static void append_comparison(
     g_string_append(
         report,
         "\n\nCOMPARISON OF ALL ALGORITHMS\n"
-        "===============================================================\n"
+        "============================================================\n"
         "Algorithm | Hits | Faults | Hit ratio | Fault ratio\n"
-        "---------------------------------------------------------------\n"
+        "------------------------------------------------------------\n"
     );
 
     for (int i = 0; i < 3; i++) {
         SimulationResult result = {0};
-
         algorithms[i](pages, count, frame_count, &result);
 
         g_string_append_printf(
@@ -144,12 +146,13 @@ static void on_run_clicked(GtkButton *button, gpointer data)
         GTK_SPIN_BUTTON(frame_spin)
     );
 
+    /* Index zero is the placeholder. */
     int choice = gtk_combo_box_get_active(
         GTK_COMBO_BOX(algorithm_combo)
     );
 
-    if (choice < 0 || choice > 3) {
-        set_status("Please choose option 1, 2, 3, or 4.");
+    if (choice < 1 || choice > 4) {
+        set_status("Please select an algorithm from the dropdown.");
         return;
     }
 
@@ -158,26 +161,26 @@ static void on_run_clicked(GtkButton *button, gpointer data)
     g_string_append(
         report,
         "PAGE REPLACEMENT SIMULATOR\n"
-        "===============================================================\n"
+        "============================================================\n"
     );
 
     g_string_append_printf(
         report,
-        "Reference string: %s\n"
-        "Requests: %d\n"
-        "Frames: %d\n",
+        "Reference string : %s\n"
+        "Number of pages  : %d\n"
+        "Number of frames : %d\n",
         gtk_entry_get_text(GTK_ENTRY(page_entry)),
         count,
         frames
     );
 
-    if (choice == 0) {
+    if (choice == 1) {
         append_result(report, "FIFO - FIRST IN, FIRST OUT",
                       run_fifo, pages, count, frames);
-    } else if (choice == 1) {
+    } else if (choice == 2) {
         append_result(report, "LRU - LEAST RECENTLY USED",
                       run_lru, pages, count, frames);
-    } else if (choice == 2) {
+    } else if (choice == 3) {
         append_result(report, "OPTIMAL PAGE REPLACEMENT",
                       run_optimal, pages, count, frames);
     } else {
@@ -205,27 +208,26 @@ static void on_demo_clicked(GtkButton *button, gpointer data)
     (void)data;
 
     gtk_entry_set_text(
-        GTK_ENTRY(page_entry),
-        "7 0 1 2 0 3 0 4 2 3"
+        GTK_ENTRY(page_entry), "7,0,1,2,0,3,0,4,2,3"
     );
 
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(frame_spin), 3);
-    gtk_combo_box_set_active(GTK_COMBO_BOX(algorithm_combo), 3);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(algorithm_combo), 4);
 
     clear_report();
-    set_status("Demo loaded. Click Run Simulation.");
+    set_status("Sample loaded. Click Run Simulation.");
 }
 
-static void on_clear_results_clicked(GtkButton *button, gpointer data)
+static void on_clear_results_clicked(
+    GtkButton *button, gpointer data)
 {
     (void)button;
     (void)data;
 
-    /* Keep the page string and frame count unchanged. */
-    gtk_combo_box_set_active(GTK_COMBO_BOX(algorithm_combo), -1);
-
+    /* Preserve both inputs; clear only the choice and output. */
+    gtk_combo_box_set_active(GTK_COMBO_BOX(algorithm_combo), 0);
     clear_report();
-    set_status("Results and algorithm choice cleared.");
+    set_status("Results cleared. Your page string and frame count remain.");
 }
 
 static void on_clear_all_clicked(GtkButton *button, gpointer data)
@@ -235,29 +237,43 @@ static void on_clear_all_clicked(GtkButton *button, gpointer data)
 
     gtk_entry_set_text(GTK_ENTRY(page_entry), "");
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(frame_spin), 3);
-    gtk_combo_box_set_active(GTK_COMBO_BOX(algorithm_combo), -1);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(algorithm_combo), 0);
 
     clear_report();
-    set_status("Everything cleared.");
+    set_status("Everything cleared. Enter a new reference string.");
 }
 
 static void add_css(void)
 {
     const char *css =
-        "window { background: #101827; color: #eef2ff; }"
-        "label { color: #e5eaf5; }"
-        ".title { font-size: 25px; font-weight: bold; color: white; }"
-        ".subtitle { color: #aab8d0; font-size: 11px; }"
-        ".section { background: #1b2940; border-radius: 12px; padding: 14px; }"
-        "entry, spinbutton, combobox, textview {"
-        " background: #111c2e; color: #f8fafc;"
-        " border: 1px solid #3b4d68; border-radius: 7px; padding: 8px; }"
-        "button { background: #263852; color: white;"
-        " border-radius: 8px; padding: 9px; }"
-        "button:hover { background: #344b6c; }"
-        "button.run { background: #6258e8; font-weight: bold; }"
-        "button.danger { background: #703b4b; }"
-        "textview { font-family: monospace; font-size: 11px; }";
+        "window { background-color: #0b1220; color: #f1f5f9; }"
+        "label { color: #e2e8f0; }"
+        ".title { font-size: 27px; font-weight: bold; color: #ffffff; }"
+        ".subtitle { color: #a8bad3; font-size: 12px; }"
+        ".section { background-color: #18263c; border-radius: 12px; padding: 14px; }"
+        "entry { background-color: #0f1b2e; color: #ffffff;"
+        " border: 1px solid #526782; border-radius: 7px; padding: 10px; }"
+        "spinbutton { background-color: #0f1b2e; color: #ffffff;"
+        " border: 1px solid #526782; border-radius: 7px; padding: 6px; }"
+        "combobox { background-color: #233650; color: #ffffff;"
+        " border: 1px solid #7186a5; border-radius: 7px; padding: 5px; }"
+        "combobox button { background-color: #233650; color: #ffffff; }"
+        "combobox arrow { color: #ffffff; }"
+        "combobox menu, menu { background-color: #18263c; color: #ffffff; }"
+        "combobox menu menuitem, menu menuitem {"
+        " background-color: #18263c; color: #ffffff; padding: 8px; }"
+        "combobox menu menuitem:hover, menu menuitem:hover {"
+        " background-color: #6258e8; color: #ffffff; }"
+        "button { background-color: #263a55; color: #ffffff;"
+        " border: 1px solid #617894; border-radius: 8px; padding: 10px; }"
+        "button:hover { background-color: #385273; }"
+        "button.run { background-color: #6258e8; font-weight: bold; }"
+        "button.run:hover { background-color: #776df4; }"
+        "button.danger { background-color: #713e50; }"
+        "frame { border-color: #334963; }"
+        "frame > label { color: #cbd5e1; }"
+        "textview, textview text {"
+        " background-color: #0f1b2e; color: #e2e8f0; }";
 
     GtkCssProvider *provider = gtk_css_provider_new();
 
@@ -272,15 +288,15 @@ static void add_css(void)
     g_object_unref(provider);
 }
 
-static GtkWidget *make_label(const char *text, const char *style_class)
+static GtkWidget *make_label(
+    const char *text, const char *style_class)
 {
     GtkWidget *label = gtk_label_new(text);
     gtk_widget_set_halign(label, GTK_ALIGN_START);
 
     if (style_class != NULL)
         gtk_style_context_add_class(
-            gtk_widget_get_style_context(label), style_class
-        );
+            gtk_widget_get_style_context(label), style_class);
 
     return label;
 }
@@ -290,116 +306,113 @@ GtkWidget *create_main_window(void)
     add_css();
 
     GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-
     gtk_window_set_title(
-        GTK_WINDOW(window),
-        "Page Replacement Simulator"
-    );
-
-    gtk_window_set_default_size(GTK_WINDOW(window), 1100, 760);
+        GTK_WINDOW(window), "Page Replacement Simulator");
+    gtk_window_set_default_size(GTK_WINDOW(window), 1200, 800);
     gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
 
-    GtkWidget *outer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+    /* Open maximized so the interface fills the desktop. */
+    gtk_window_maximize(GTK_WINDOW(window));
+
+    GtkWidget *outer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(outer), 18);
     gtk_container_add(GTK_CONTAINER(window), outer);
 
     gtk_box_pack_start(
-        GTK_BOX(outer),
-        make_label("MEMORY LAB", "title"),
-        FALSE, FALSE, 0
-    );
+        GTK_BOX(outer), make_label("MEMORY LAB", "title"),
+        FALSE, FALSE, 0);
 
     gtk_box_pack_start(
         GTK_BOX(outer),
         make_label("PAGE REPLACEMENT / OPERATING SYSTEMS LAB", "subtitle"),
-        FALSE, FALSE, 0
-    );
+        FALSE, FALSE, 0);
 
     GtkWidget *card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
     gtk_style_context_add_class(
-        gtk_widget_get_style_context(card), "section"
-    );
+        gtk_widget_get_style_context(card), "section");
     gtk_box_pack_start(GTK_BOX(outer), card, FALSE, FALSE, 0);
 
     gtk_box_pack_start(
         GTK_BOX(card), make_label("SIMULATION SETUP", NULL),
-        FALSE, FALSE, 0
-    );
+        FALSE, FALSE, 0);
 
     gtk_box_pack_start(
-        GTK_BOX(card), make_label("Page reference string", NULL),
-        FALSE, FALSE, 0
-    );
+        GTK_BOX(card), make_label("Enter the page reference string", NULL),
+        FALSE, FALSE, 0);
 
     page_entry = gtk_entry_new();
+    gtk_entry_set_text(
+        GTK_ENTRY(page_entry), "7,0,1,2,0,3,0,4,2,3");
     gtk_entry_set_placeholder_text(
-        GTK_ENTRY(page_entry),
-        "Example: 7 0 1 2 0 3 0 4 2 3"
-    );
+        GTK_ENTRY(page_entry), "Example: 7,0,1,2,0,3,0,4,2,3");
     gtk_box_pack_start(GTK_BOX(card), page_entry, FALSE, FALSE, 0);
 
     gtk_box_pack_start(
-        GTK_BOX(card), make_label("Number of frames", NULL),
-        FALSE, FALSE, 0
-    );
+        GTK_BOX(card), make_label("Enter the number of frames", NULL),
+        FALSE, FALSE, 0);
 
     frame_spin = gtk_spin_button_new_with_range(1, MAX_FRAMES, 1);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(frame_spin), 3);
     gtk_box_pack_start(GTK_BOX(card), frame_spin, FALSE, FALSE, 0);
 
     gtk_box_pack_start(
-        GTK_BOX(card), make_label("Select algorithm (1-4)", NULL),
-        FALSE, FALSE, 0
-    );
+        GTK_BOX(card), make_label("Select an algorithm", NULL),
+        FALSE, FALSE, 0);
 
     algorithm_combo = gtk_combo_box_text_new();
     gtk_combo_box_text_append_text(
-        GTK_COMBO_BOX_TEXT(algorithm_combo), "1. FIFO"
-    );
+        GTK_COMBO_BOX_TEXT(algorithm_combo), "Select an algorithm...");
     gtk_combo_box_text_append_text(
-        GTK_COMBO_BOX_TEXT(algorithm_combo), "2. LRU"
-    );
+        GTK_COMBO_BOX_TEXT(algorithm_combo), "1. FIFO");
     gtk_combo_box_text_append_text(
-        GTK_COMBO_BOX_TEXT(algorithm_combo), "3. Optimal"
-    );
+        GTK_COMBO_BOX_TEXT(algorithm_combo), "2. LRU");
     gtk_combo_box_text_append_text(
-        GTK_COMBO_BOX_TEXT(algorithm_combo), "4. Compare All Algorithms"
-    );
-    gtk_combo_box_set_active(GTK_COMBO_BOX(algorithm_combo), -1);
-    gtk_box_pack_start(GTK_BOX(card), algorithm_combo, FALSE, FALSE, 0);
+        GTK_COMBO_BOX_TEXT(algorithm_combo), "3. Optimal");
+    gtk_combo_box_text_append_text(
+        GTK_COMBO_BOX_TEXT(algorithm_combo),
+        "4. Compare All Algorithms");
+
+    gtk_combo_box_set_active(GTK_COMBO_BOX(algorithm_combo), 0);
+    gtk_box_pack_start(
+        GTK_BOX(card), algorithm_combo, FALSE, FALSE, 0);
 
     GtkWidget *buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
     gtk_box_pack_start(GTK_BOX(card), buttons, FALSE, FALSE, 0);
 
-    GtkWidget *run_button = gtk_button_new_with_label("RUN SIMULATION");
-    GtkWidget *demo_button = gtk_button_new_with_label("Load Demo Example");
+    GtkWidget *run_button =
+        gtk_button_new_with_label("RUN SIMULATION");
+    GtkWidget *demo_button =
+        gtk_button_new_with_label("Load Demo Example");
     GtkWidget *clear_results_button =
         gtk_button_new_with_label("Clear Results / Choice");
     GtkWidget *clear_all_button =
         gtk_button_new_with_label("Clear Everything");
 
     gtk_style_context_add_class(
-        gtk_widget_get_style_context(run_button), "run"
-    );
+        gtk_widget_get_style_context(run_button), "run");
     gtk_style_context_add_class(
-        gtk_widget_get_style_context(clear_all_button), "danger"
-    );
+        gtk_widget_get_style_context(clear_all_button), "danger");
 
     gtk_box_pack_start(GTK_BOX(buttons), run_button, TRUE, TRUE, 0);
     gtk_box_pack_start(GTK_BOX(buttons), demo_button, TRUE, TRUE, 0);
-    gtk_box_pack_start(GTK_BOX(buttons), clear_results_button, TRUE, TRUE, 0);
-    gtk_box_pack_start(GTK_BOX(buttons), clear_all_button, TRUE, TRUE, 0);
+    gtk_box_pack_start(
+        GTK_BOX(buttons), clear_results_button, TRUE, TRUE, 0);
+    gtk_box_pack_start(
+        GTK_BOX(buttons), clear_all_button, TRUE, TRUE, 0);
 
-    g_signal_connect(run_button, "clicked",
-                     G_CALLBACK(on_run_clicked), NULL);
-    g_signal_connect(demo_button, "clicked",
-                     G_CALLBACK(on_demo_clicked), NULL);
-    g_signal_connect(clear_results_button, "clicked",
-                     G_CALLBACK(on_clear_results_clicked), NULL);
-    g_signal_connect(clear_all_button, "clicked",
-                     G_CALLBACK(on_clear_all_clicked), NULL);
+    g_signal_connect(
+        run_button, "clicked", G_CALLBACK(on_run_clicked), NULL);
+    g_signal_connect(
+        demo_button, "clicked", G_CALLBACK(on_demo_clicked), NULL);
+    g_signal_connect(
+        clear_results_button, "clicked",
+        G_CALLBACK(on_clear_results_clicked), NULL);
+    g_signal_connect(
+        clear_all_button, "clicked",
+        G_CALLBACK(on_clear_all_clicked), NULL);
 
-    status_label = gtk_label_new("Ready. Enter pages and choose an algorithm.");
+    status_label = gtk_label_new(
+        "Ready. The sample is filled in; select an algorithm to begin.");
     gtk_widget_set_halign(status_label, GTK_ALIGN_START);
     gtk_box_pack_start(GTK_BOX(outer), status_label, FALSE, FALSE, 0);
 
@@ -416,8 +429,7 @@ GtkWidget *create_main_window(void)
     gtk_scrolled_window_set_policy(
         GTK_SCROLLED_WINDOW(scroll),
         GTK_POLICY_AUTOMATIC,
-        GTK_POLICY_AUTOMATIC
-    );
+        GTK_POLICY_AUTOMATIC);
 
     gtk_container_add(GTK_CONTAINER(scroll), output_view);
     gtk_container_add(GTK_CONTAINER(output_frame), scroll);
