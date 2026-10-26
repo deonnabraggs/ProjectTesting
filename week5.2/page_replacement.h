@@ -1,58 +1,48 @@
-#ifndef REPLACEMENT_H
-#define REPLACEMENT_H
+#ifndef PAGE_REPLACEMENT_H
+#define PAGE_REPLACEMENT_H
 
-#include <stddef.h>
+#include <gtk/gtk.h>
 
-#define MAX_PAGES 500
-#define MAX_FRAMES 20
+/* Maximum allowed page requests and frames */
+#define MAX_REQUESTS 100
+#define MAX_FRAMES 10
 
-typedef enum {
-    STATUS_FAULT = 0,
-    STATUS_HIT = 1
-} PageStatus;
+/* Page request status */
+#define PAGE_HIT 1
+#define PAGE_FAULT 0
 
+/* Store the results of one page replacement algorithm */
 typedef struct {
-    int page;
-    int frames[MAX_FRAMES];
-    PageStatus status;
-} StepResult;
+    int frames[MAX_REQUESTS][MAX_FRAMES];
+    int status[MAX_REQUESTS];
 
-typedef struct {
-    char algorithm[16];
-    int page_count;
-    int frame_count;
-    int hits;
-    int faults;
-    StepResult steps[MAX_PAGES];
+    int total_hits;
+    int total_faults;
 } SimulationResult;
 
-int parse_page_string(
-    const char *input,
-    int pages[],
-    int *count,
-    char *error,
-    size_t error_size
-);
-
-void run_fifo(
+/* Page replacement algorithm functions */
+void fifo(
     const int pages[],
-    int count,
+    int n,
     int frame_count,
     SimulationResult *result
 );
 
-void run_lru(
+void lru(
     const int pages[],
-    int count,
+    int n,
     int frame_count,
     SimulationResult *result
 );
 
-void run_optimal(
+void optimal(
     const int pages[],
-    int count,
+    int n,
     int frame_count,
     SimulationResult *result
 );
+
+/* GUI function */
+GtkWidget *create_main_window(void);
 
 #endif
