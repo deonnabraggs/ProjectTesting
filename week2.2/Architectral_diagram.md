@@ -14,38 +14,45 @@ The Multi-Process Simulator consists of three independent processes: UI Process,
 
 ## Architectural Diagram
 
-```mermaid
-flowchart TB
-    UI["UI Process"]
-    CORE["Core Process"]
-    LOGGER["Logger Process"]
-
-    SOCKET["Unix Domain Socket"]
-    MQ["POSIX Message Queue"]
-    FIFO["FIFO / Named Pipe"]
-
-    UI -->|"Requests"| SOCKET
-    SOCKET --> CORE
-
-    CORE -->|"Responses"| MQ
-    MQ --> UI
-
-    CORE -->|"Log Messages"| FIFO
-    FIFO --> LOGGER
-
-    subgraph COMPONENTS["Core Process Components"]
-        CPU["CPU Execution"]
-        MEM["Memory Management"]
-        STACK["Stack Management"]
-        QUEUE["Queue Management"]
-    end
-
-    CORE --> CPU
-    CORE --> MEM
-    CORE --> STACK
-    CORE --> QUEUE
-```
-
+                         USER
+                           |
+                           v
+                 +------------------------+
+                 |      UI PROCESS        |
+                 |------------------------|
+                 | User Input             |
+                 | Command Selection      |
+                 | Send Requests          |
+                 | Display Results        |
+                 +-----------+------------+
+                             |
+                             | Unix Domain Socket
+                             | Operation Request
+                             v
+                 +------------------------+
+                 |      CORE PROCESS      |
+                 |------------------------|
+                 | CPU / Instruction      |
+                 | Execution              |
+                 | Memory Management      |
+                 | Stack Management       |
+                 | Queue Management       |
+                 | Operation Processing   |
+                 +-----------+------------+
+                             |
+                  +----------+-----------+
+                  |                      |
+                  | POSIX Message Queue  | FIFO / Named Pipe
+                  | Response / Result    | Execution Logs
+                  v                      v
+       +------------------------+  +------------------------+
+       |      UI PROCESS        |  |     LOGGER PROCESS     |
+       |------------------------|  |------------------------|
+       | Receive Response       |  | Receive Log Messages   |
+       | Display Status         |  | Display Operation      |
+       | Display Result         |  | Status and Details     |
+       +------------------------+  +------------------------+
+       
 ## Working Flow
 
 1. The user selects an operation from the UI menu.
