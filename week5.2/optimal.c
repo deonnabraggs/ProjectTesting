@@ -1,25 +1,25 @@
-#include "replacement.h"
+#include "page_replacement.h"
 #include <string.h>
 
-void run_optimal(const int pages[], int count, int frame_count,
-                 SimulationResult *result)
+void run_optimal(
+    const int pages[],
+    int count,
+    int frame_count,
+    SimulationResult *result
+)
 {
     int frames[MAX_FRAMES];
-    int i, j;
 
     memset(result, 0, sizeof(*result));
-    strcpy(result->algorithm, "Optimal");
-    result->page_count = count;
-    result->frame_count = frame_count;
 
-    for (j = 0; j < frame_count; j++)
+    for (int j = 0; j < MAX_FRAMES; j++)
         frames[j] = -1;
 
-    for (i = 0; i < count; i++) {
+    for (int i = 0; i < count; i++) {
         int hit = 0;
         int empty = -1;
 
-        for (j = 0; j < frame_count; j++) {
+        for (int j = 0; j < frame_count; j++) {
             if (frames[j] == pages[i]) {
                 hit = 1;
                 break;
@@ -30,11 +30,11 @@ void run_optimal(const int pages[], int count, int frame_count,
         }
 
         if (hit) {
-            result->hits++;
             result->steps[i].status = STATUS_HIT;
+            result->total_hits++;
         } else {
-            result->faults++;
             result->steps[i].status = STATUS_FAULT;
+            result->total_faults++;
 
             if (empty != -1) {
                 frames[empty] = pages[i];
@@ -42,11 +42,10 @@ void run_optimal(const int pages[], int count, int frame_count,
                 int victim = -1;
                 int farthest = -1;
 
-                for (j = 0; j < frame_count; j++) {
-                    int k;
+                for (int j = 0; j < frame_count; j++) {
                     int next_use = -1;
 
-                    for (k = i + 1; k < count; k++) {
+                    for (int k = i + 1; k < count; k++) {
                         if (pages[k] == frames[j]) {
                             next_use = k;
                             break;
@@ -68,9 +67,7 @@ void run_optimal(const int pages[], int count, int frame_count,
             }
         }
 
-        result->steps[i].page = pages[i];
-
-        for (j = 0; j < frame_count; j++)
+        for (int j = 0; j < frame_count; j++)
             result->steps[i].frames[j] = frames[j];
     }
 }
