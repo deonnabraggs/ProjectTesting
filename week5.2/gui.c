@@ -1,4 +1,3 @@
-
 #include <gtk/gtk.h>
 #include <string.h>
 #include "page_replacement.h"
@@ -241,24 +240,33 @@ static void on_clear_all_clicked(GtkButton *button, gpointer data)
     set_status("Everything cleared. Enter a new reference string.");
 }
 
-/* DARK THEME: colours only; simulation logic remains unchanged. */
+/* Dark theme styling */
 static void add_css(void)
 {
     const char *css =
-        "window {"
+        "* { color: #e8eef8; }"
+
+        "window, window.background {"
         " background-color: #080e19;"
         " color: #f1f5f9;"
         "}"
 
+        "box {"
+        " background-color: transparent;"
+        "}"
+
         "label { color: #e8eef8; }"
 
-        ".title {"
+        "label.title {"
         " color: #ffffff;"
         " font-size: 27px;"
         " font-weight: bold;"
         "}"
 
-        ".subtitle { color: #a8bad3; font-size: 12px; }"
+        "label.subtitle {"
+        " color: #a8bad3;"
+        " font-size: 12px;"
+        "}"
 
         ".section {"
         " background-color: #17263b;"
@@ -267,8 +275,9 @@ static void add_css(void)
         " padding: 14px;"
         "}"
 
-        "entry {"
+        "entry, entry:backdrop {"
         " background-color: #0b1628;"
+        " background-image: none;"
         " color: #ffffff;"
         " caret-color: #ffffff;"
         " border: 1px solid #526b8b;"
@@ -279,70 +288,58 @@ static void add_css(void)
         "entry:focus {"
         " background-color: #101f35;"
         " color: #ffffff;"
-        " border: 1px solid #8b83ff;"
+        " border-color: #8b83ff;"
         "}"
 
-        "spinbutton {"
+        "spinbutton, spinbutton entry {"
         " background-color: #0b1628;"
+        " background-image: none;"
         " color: #ffffff;"
         " border: 1px solid #526b8b;"
-        " border-radius: 7px;"
-        "}"
-
-        "spinbutton entry {"
-        " background-color: #0b1628;"
-        " color: #ffffff;"
         "}"
 
         "spinbutton button {"
         " background-color: #263c58;"
+        " background-image: none;"
         " color: #ffffff;"
         " border: 1px solid #526b8b;"
         "}"
 
         "spinbutton button:hover {"
         " background-color: #405d81;"
-        " color: #ffffff;"
+        " background-image: none;"
         "}"
 
-        "combobox {"
+        "combobox, combobox button {"
         " background-color: #1b2d46;"
-        " color: #ffffff;"
-        "}"
-
-        "combobox button {"
-        " background-color: #1b2d46;"
+        " background-image: none;"
         " color: #ffffff;"
         " border: 1px solid #607b9e;"
         " border-radius: 7px;"
-        " padding: 9px;"
+        " padding: 7px;"
         "}"
 
         "combobox button:hover {"
         " background-color: #304866;"
+        " background-image: none;"
         " color: #ffffff;"
         "}"
 
         "combobox arrow { color: #ffffff; }"
 
-        "combobox menu, menu {"
-        " background-color: #101d30;"
-        " color: #ffffff;"
-        "}"
-
-        "combobox menu menuitem, menu menuitem {"
+        "menu, menuitem {"
         " background-color: #101d30;"
         " color: #f1f5f9;"
-        " padding: 9px;"
         "}"
 
-        "combobox menu menuitem:hover, menu menuitem:hover {"
+        "menuitem:hover {"
         " background-color: #5146c8;"
         " color: #ffffff;"
         "}"
 
-        "button {"
+        "button, button:backdrop {"
         " background-color: #263b56;"
+        " background-image: none;"
         " color: #ffffff;"
         " border: 1px solid #617c9e;"
         " border-radius: 8px;"
@@ -353,17 +350,20 @@ static void add_css(void)
 
         "button:hover {"
         " background-color: #3a5273;"
+        " background-image: none;"
         " color: #ffffff;"
         " border-color: #9bb6d8;"
         "}"
 
         "button:active {"
         " background-color: #4a6285;"
+        " background-image: none;"
         " color: #ffffff;"
         "}"
 
-        "button.run {"
+        "button.run, button.run:backdrop {"
         " background-color: #5146d8;"
+        " background-image: none;"
         " color: #ffffff;"
         " border: 1px solid #8c84ff;"
         " font-weight: bold;"
@@ -371,33 +371,36 @@ static void add_css(void)
 
         "button.run:hover {"
         " background-color: #6b5ff0;"
+        " background-image: none;"
         " color: #ffffff;"
         "}"
 
         "button.danger {"
         " background-color: #6c3046;"
+        " background-image: none;"
         " color: #ffffff;"
         " border: 1px solid #a85d78;"
         "}"
 
         "button.danger:hover {"
         " background-color: #8a3b58;"
+        " background-image: none;"
         " color: #ffffff;"
         "}"
 
-        "frame { border-color: #344963; }"
+        "frame {"
+        " background-color: #080e19;"
+        " border-color: #344963;"
+        "}"
+
         "frame > label { color: #dce6f5; }"
 
-        "textview {"
+        "textview, textview text {"
         " background-color: #0b1628;"
+        " background-image: none;"
         " color: #e8eef8;"
         " font-family: monospace;"
         " font-size: 12px;"
-        "}"
-
-        "textview text {"
-        " background-color: #0b1628;"
-        " color: #e8eef8;"
         "}";
 
     GtkCssProvider *provider = gtk_css_provider_new();
@@ -413,7 +416,7 @@ static void add_css(void)
     gtk_style_context_add_provider_for_screen(
         gdk_screen_get_default(),
         GTK_STYLE_PROVIDER(provider),
-        GTK_STYLE_PROVIDER_PRIORITY_APPLICATION
+        GTK_STYLE_PROVIDER_PRIORITY_USER
     );
 
     g_object_unref(provider);
