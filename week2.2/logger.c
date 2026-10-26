@@ -1,65 +1,59 @@
 
-#include "ipc.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
-#include <errno.h>
-
-static int read_full(int fd, void *buf, size_t size)
-{
-    size_t total = 0;
-
-    while (total < size) {
-        ssize_t n = read(fd, (char *)buf + total, size - total);
-        if (n == 0) return total == 0 ? 0 : -1;
-        if (n < 0) {
-            if (errno == EINTR) continue;
-            return -1;
-        }
-        total += (size_t)n;
-    }
-
-    return 1;
-}
+#include <fcntl.h>
+#include "ipc.h"
 
 int main(void)
 {
-    int fifo = open(FIFO_PATH, O_RDONLY);
-    if (fifo == -1) {
-        perror("Logger FIFO open");
-        return 1;
-    }
+    int fifo;
+    char buffer[256];
+    ssize_t bytes_read;
 
-    FILE *file = fopen("execution.log", "a");
-    if (!file) {
-        perror("Logger log file");
-        close(fifo);
-        return 1;
-    }
-
-    printf("LOGGER: Waiting for Core records...\n");
+    printf("Logger process starting...\n");
+    printf("Waiting for Core process...\n");
     fflush(stdout);
 
-    while (1) {
-        LogMessage log;
-        int rc = read_full(fifo, &log, sizeof(log));
-        if (rc <= 0) break;
-        if (log.status == -1) {
-            printf("LOGGER: Shutdown received.\n");
-            break;
-        }
+    /* Open the named pipe for reading */
+    fifo = open(FIFO_PATH, O_RDONLY);
 
-        printf("[LOGGER] %s | Command %d | %s | Result %d\n",
-               log.status ? "SUCCESS" : "ERROR",
-               log.command, log.message, log.result);
-
-        fprintf(file, "[%s] Command %d | %s | Result %d\n",
-                log.status ? "SUCCESS" : "ERROR",
-                log.command, log.message, log.result);
-        fflush(file);
+    if (fifo == -1)
+    {
+        perror("Logger: Failed to open FIFO");
+        return EXIT_FAILURE;
     }
 
-    fclose(file);
+    printf("Logger connected. Waiting for messages...\n");
+    printf("------------------------------------------\n");
+    fflush(stdout);
+
+    /* Read and display messages sent by Core */
+    while ((bytes_read = read(fifo, buffer, sizeof(buffer))) > 0)
+    {
+        size_t written = fwrite(buffer, 1, (size_t)bytes_read, stdout);
+
+        if (written != (size_t)bytes_read)
+        {
+            perror("Logger: Failed to display message");
+            close(fifo);
+            return EXIT_FAILURE;
+        }
+
+        fflush(stdout);
+    }
+
+    if (bytes_read == -1)
+    {
+        perror("Logger: Failed to read FIFO");
+        close(fifo);
+        return EXIT_FAILURE;
+    }
+
     close(fifo);
-    printf("LOGGER: Stopped.\n");
-    return 0;
+
+    printf("\n------------------------------------------\n");
+    printf("Logger process stopped.\n");
+
+    return EXIT_SUCCESS;
 }
