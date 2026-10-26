@@ -1,15 +1,13 @@
 #include <gtk/gtk.h>
-
-/* Function implemented in GUI.c */
-GtkWidget *create_gui(void);
+#include "page_replacement.h"
 
 int main(int argc, char *argv[])
 {
-    GtkWidget *window;
-
     gtk_init(&argc, &argv);
 
-    window = create_gui();
+    GtkWidget *window = create_main_window();
+
+    g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
 
     gtk_widget_show_all(window);
     gtk_main();
