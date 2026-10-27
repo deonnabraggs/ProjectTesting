@@ -1,5 +1,5 @@
 
-# WEEK 4 — IPC TESTING
+#  IPC TESTING
 
 ## 1. Objective
 
