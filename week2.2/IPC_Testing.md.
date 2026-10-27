@@ -1,0 +1,36 @@
+
+# WEEK 4 — IPC TESTING
+
+## 1. Objective
+
+The objective of IPC testing is to verify that the UI, Core, and Logger processes communicate correctly using the selected Inter-Process Communication (IPC) mechanisms.
+
+## 2. IPC Mechanisms Tested
+
+| Communication | IPC Mechanism |
+|---|---|
+| UI → Core | Unix Domain Socket |
+| Core → UI | POSIX Message Queue |
+| Core → Logger | FIFO (Named Pipe) |
+
+## 3. IPC Test Cases and Results
+
+| Test Case | Expected Result | Actual Result | Status |
+|---|---|---|---|
+| UI to Core communication | Core receives the user's input | Core received the ADD instruction and values 12 and 13 | Passed |
+| Core to UI communication | UI receives the computed result | UI displayed the result 25 | Passed |
+| Core to Logger communication | Logger receives the operation details | Logger received the success status, message, and result 25 | Passed |
+| Addition operation | The simulator calculates 12 + 13 | The simulator returned 25 | Passed |
+| Logging operation | Logger displays the operation details | Logger displayed SUCCESS, Addition completed successfully, and result 25 | Passed |
+| UI termination | UI disconnects after the exit request | UI displayed the exit message and disconnected | Passed |
+| Core and Logger termination | Both processes terminate successfully | Process termination verified | Passed |
+
+## 4. Test Summary
+
+The IPC tests demonstrated successful communication between the UI, Core, and Logger processes. The Core process received input from the UI, performed the addition operation, returned the result to the UI, and sent the operation details to the Logger.
+
+The addition test using inputs 12 and 13 produced the correct result, 25. The UI displayed the result, and the Logger recorded the successful operation.
+
+## 5. Conclusion
+
+The IPC testing demonstrated that the simulator's three IPC mechanisms support communication between the independent processes. The tested addition operation confirmed input transfer, computation, result delivery, and logging.
