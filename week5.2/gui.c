@@ -1,4 +1,3 @@
-
 #include <gtk/gtk.h>
 #include <string.h>
 #include "page_replacement.h"
@@ -241,14 +240,14 @@ static void on_clear_all_clicked(GtkButton *button, gpointer data)
     set_status("Everything cleared. Enter a new reference string.");
 }
 
-/* Dark theme styling */
+/* CSS ONLY: updated colors and fonts. No GUI structure changes. */
 static void add_css(void)
 {
     const char *css =
-        "* { color: #e8eef8; }"
+        "* { color: #eaf2ff; }"
 
         "window, window.background {"
-        " background-color: #080e19;"
+        " background-color: #0b1120;"
         " color: #f1f5f9;"
         "}"
 
@@ -256,77 +255,84 @@ static void add_css(void)
         " background-color: transparent;"
         "}"
 
-        "label { color: #e8eef8; }"
+        "label {"
+        " color: #eaf2ff;"
+        " font-family: Sans;"
+        "}"
 
         "label.title {"
         " color: #ffffff;"
+        " font-family: Sans;"
         " font-size: 27px;"
         " font-weight: bold;"
         "}"
 
         "label.subtitle {"
-        " color: #a8bad3;"
+        " color: #a9bbd8;"
+        " font-family: Sans;"
         " font-size: 12px;"
         "}"
 
         ".section {"
-        " background-color: #17263b;"
-        " border: 1px solid #344963;"
+        " background-color: #16243a;"
+        " border: 1px solid #344b6b;"
         " border-radius: 12px;"
         " padding: 14px;"
         "}"
 
         "entry, entry:backdrop {"
-        " background-color: #0b1628;"
+        " background-color: #0d192d;"
         " background-image: none;"
         " color: #ffffff;"
-        " caret-color: #ffffff;"
-        " border: 1px solid #526b8b;"
+        " caret-color: #60a5fa;"
+        " border: 1px solid #48658a;"
         " border-radius: 7px;"
         " padding: 10px;"
         "}"
 
         "entry:focus {"
-        " background-color: #101f35;"
+        " background-color: #132541;"
         " color: #ffffff;"
-        " border-color: #8b83ff;"
+        " border-color: #60a5fa;"
         "}"
 
         "spinbutton, spinbutton entry {"
-        " background-color: #0b1628;"
+        " background-color: #0d192d;"
         " background-image: none;"
         " color: #ffffff;"
-        " border: 1px solid #526b8b;"
+        " border: 1px solid #48658a;"
         "}"
 
         "spinbutton button {"
-        " background-color: #263c58;"
+        " background-color: #243d5d;"
         " background-image: none;"
         " color: #ffffff;"
-        " border: 1px solid #526b8b;"
+        " border: 1px solid #48658a;"
         "}"
 
         "spinbutton button:hover {"
-        " background-color: #405d81;"
+        " background-color: #34577e;"
         " background-image: none;"
         "}"
 
         "combobox, combobox button {"
-        " background-color: #1b2d46;"
+        " background-color: #1a2d49;"
         " background-image: none;"
         " color: #ffffff;"
-        " border: 1px solid #607b9e;"
+        " border: 1px solid #56769e;"
         " border-radius: 7px;"
         " padding: 7px;"
         "}"
 
         "combobox button:hover {"
-        " background-color: #304866;"
+        " background-color: #2b4669;"
         " background-image: none;"
         " color: #ffffff;"
         "}"
 
-        "combobox arrow { color: #ffffff; }"
+        "combobox arrow {"
+        " color: #ffffff;"
+        "}"
 
         "menu, menuitem {"
         " background-color: #101d30;"
@@ -334,30 +340,32 @@ static void add_css(void)
         "}"
 
         "menuitem:hover {"
-        " background-color: #5146c8;"
+        " background-color: #3949ab;"
         " color: #ffffff;"
         "}"
 
         "button, button:backdrop {"
-        " background-color: #263b56;"
+        " background-color: #243a57;"
         " background-image: none;"
         " color: #ffffff;"
-        " border: 1px solid #617c9e;"
+        " border: 1px solid #56769b;"
         " border-radius: 8px;"
         " padding: 10px;"
         "}"
 
-        "button label { color: #ffffff; }"
+        "button label {"
+        " color: #ffffff;"
+        "}"
 
         "button:hover {"
-        " background-color: #3a5273;"
+        " background-color: #345477;"
         " background-image: none;"
         " color: #ffffff;"
-        " border-color: #9bb6d8;"
+        " border-color: #8bb8ed;"
         "}"
 
         "button:active {"
-        " background-color: #4a6285;"
+        " background-color: #40638c;"
         " background-image: none;"
         "}"
 
@@ -375,33 +383,34 @@ static void add_css(void)
         "}"
 
         "button.danger {"
-        " background-color: #6c3046;"
+        " background-color: #71334b;"
         " background-image: none;"
         " color: #ffffff;"
-        " border: 1px solid #a85d78;"
+        " border: 1px solid #b76583;"
         "}"
 
         "button.danger:hover {"
-        " background-color: #8a3b58;"
+        " background-color: #91435f;"
         " background-image: none;"
         "}"
 
         "frame {"
-        " background-color: #080e19;"
-        " border-color: #344963;"
+        " background-color: #0b1120;"
+        " border-color: #3c5575;"
         "}"
 
-        /* ONLY CHANGE: colour of SIMULATION RESULTS heading */
-        "label.simulation-heading {"
-        " color: #008CFF;"
-        " font-size: 16px;"
+        /* Blue font for SIMULATION RESULTS only. */
+        "frame > label {"
+        " color: #3b9bff;"
+        " font-family: Sans;"
+        " font-size: 18px;"
         " font-weight: bold;"
         "}"
 
         "textview, textview text {"
-        " background-color: #0b1628;"
+        " background-color: #0d192d;"
         " background-image: none;"
-        " color: #e8eef8;"
+        " color: #eaf2ff;"
         " font-family: monospace;"
         " font-size: 16px;"
         "}";
@@ -551,14 +560,7 @@ GtkWidget *create_main_window(void)
     gtk_widget_set_halign(status_label, GTK_ALIGN_START);
     gtk_box_pack_start(GTK_BOX(outer), status_label, FALSE, FALSE, 0);
 
-    GtkWidget *output_frame = gtk_frame_new(NULL);
-    GtkWidget *heading = gtk_label_new("SIMULATION RESULTS");
-
-    /* Assign a unique class to this heading only. */
-    gtk_style_context_add_class(
-        gtk_widget_get_style_context(heading), "simulation-heading");
-
-    gtk_frame_set_label_widget(GTK_FRAME(output_frame), heading);
+    GtkWidget *output_frame = gtk_frame_new("SIMULATION RESULTS");
     gtk_box_pack_start(GTK_BOX(outer), output_frame, TRUE, TRUE, 0);
 
     output_view = gtk_text_view_new();
