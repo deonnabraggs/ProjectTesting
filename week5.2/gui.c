@@ -391,8 +391,9 @@ static void add_css(void)
         " border-color: #344963;"
         "}"
 
-        "frame > label {"
-        " color: #4da6ff;"
+        /* ONLY CHANGE: colour of SIMULATION RESULTS heading */
+        "label.simulation-heading {"
+        " color: #008CFF;"
         " font-size: 16px;"
         " font-weight: bold;"
         "}"
@@ -550,7 +551,14 @@ GtkWidget *create_main_window(void)
     gtk_widget_set_halign(status_label, GTK_ALIGN_START);
     gtk_box_pack_start(GTK_BOX(outer), status_label, FALSE, FALSE, 0);
 
-    GtkWidget *output_frame = gtk_frame_new("SIMULATION RESULTS");
+    GtkWidget *output_frame = gtk_frame_new(NULL);
+    GtkWidget *heading = gtk_label_new("SIMULATION RESULTS");
+
+    /* Assign a unique class to this heading only. */
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(heading), "simulation-heading");
+
+    gtk_frame_set_label_widget(GTK_FRAME(output_frame), heading);
     gtk_box_pack_start(GTK_BOX(outer), output_frame, TRUE, TRUE, 0);
 
     output_view = gtk_text_view_new();
