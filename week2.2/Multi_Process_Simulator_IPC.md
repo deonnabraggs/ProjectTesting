@@ -1,4 +1,4 @@
-# WEEK 4 — MULTI-PROCESS SIMULATOR & IPC
+MULTI-PROCESS SIMULATOR & IPC
 
 ## 1. Performance Metrics
 
