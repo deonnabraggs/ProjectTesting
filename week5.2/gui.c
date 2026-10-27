@@ -391,7 +391,11 @@ static void add_css(void)
         " border-color: #344963;"
         "}"
 
-        "frame > label { color: #dce6f5; }"
+        "frame > label {"
+        " color: #4da6ff;"
+        " font-size: 16px;"
+        " font-weight: bold;"
+        "}"
 
         "textview, textview text {"
         " background-color: #0b1628;"
