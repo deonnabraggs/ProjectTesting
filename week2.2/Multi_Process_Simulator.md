@@ -62,7 +62,7 @@ The recorded CPU usage was 0%, with user and system CPU times displayed as 0.00 
 
 ## 6. Conclusion
 
-The Week 4 Multi-Process Simulator demonstrates the separation of UI, Core, and Logger into three independent processes.
+The Week 2 Multi-Process Simulator demonstrates the separation of UI, Core, and Logger into three independent processes.
 
 The project implements Unix Domain Sockets, POSIX Message Queues, and FIFO for inter-process communication. This architecture improves modularity but introduces additional communication work.
 
