@@ -1,53 +1,27 @@
-
 #ifndef IPC_H
 #define IPC_H
 
-#include <sys/types.h>
+#define _POSIX_C_SOURCE 200809L
 
-#define SOCKET_PATH "/tmp/ipc_core_socket"
-#define FIFO_PATH   "/tmp/core_to_logger_fifo"
-#define MQ_NAME     "/week4_ipc_queue"
+#define SOCKET_PATH "/tmp/week2_2_core.sock"
+#define FIFO_PATH   "/tmp/week2_2_logger.fifo"
+#define MQ_NAME     "/week2_2_response"
 
+#define MAX_STACK 10
+#define MAX_QUEUE 10
+#define MEMORY_SIZE 10
 #define MAX_MESSAGE 256
-#define MEMORY_SIZE 100
-#define STACK_SIZE  50
-#define QUEUE_SIZE  50
-
-typedef enum {
-    CMD_ADD = 1,
-    CMD_SUBTRACT,
-    CMD_MULTIPLY,
-    CMD_DIVIDE,
-    CMD_PUSH,
-    CMD_POP,
-    CMD_ENQUEUE,
-    CMD_DEQUEUE,
-    CMD_STORE,
-    CMD_LOAD,
-    CMD_STACK_PEEK,
-    CMD_QUEUE_PEEK,
-    CMD_EXIT
-} Command;
 
 typedef struct {
-    int command;
+    int option;
     int value1;
     int value2;
-} CoreMessage;
+} Request;
 
-/* Core sends operation results to UI through the POSIX MQ. */
 typedef struct {
-    int status;       /* 1 = success, 0 = error */
+    int status;
     int result;
-    char message[MAX_MESSAGE];
-} CoreResponse;
-
-/* Core sends execution/error records to Logger through FIFO. */
-typedef struct {
-    int status;       /* -1 = logger shutdown */
-    int command;
-    int result;
-    char message[MAX_MESSAGE];
-} LogMessage;
+    char message[128];
+} Response;
 
 #endif
