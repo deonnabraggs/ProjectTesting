@@ -1,4 +1,3 @@
-#define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
 #include <string.h>
@@ -30,7 +29,10 @@ static int send_request(int fd, const Request *r)
 
     while (left) {
         ssize_t n = send(fd, p, left, 0);
-        if (n < 0) return -1;
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            return -1;
+        }
         if (n == 0) return -1;
         p += n;
         left -= (size_t)n;
@@ -46,7 +48,6 @@ int main(void)
     Request req;
     Response res;
 
-    /* Core must be started first so this queue already exists. */
     mq = mq_open(MQ_NAME, O_RDONLY);
     if (mq == (mqd_t)-1) {
         perror("UI: mq_open (start Core first)");
@@ -109,13 +110,11 @@ int main(void)
                 continue;
         }
 
-        /* IPC 1: UI -> Core using Unix Domain Socket */
         if (send_request(sock, &req) == -1) {
             perror("UI: send");
             break;
         }
 
-        /* IPC 2: Core -> UI using POSIX Message Queue */
         if (mq_receive(mq, (char *)&res, sizeof(res), NULL) == -1) {
             perror("UI: mq_receive");
             break;
