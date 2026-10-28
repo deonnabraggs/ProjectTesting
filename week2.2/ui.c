@@ -3,135 +3,356 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
+#include <limits.h>
 #include <mqueue.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/stat.h>
 #include "ipc.h"
 
-static int read_number(const char *prompt, int *value)
-{
-    printf("%s", prompt);
-    fflush(stdout);
+static int stack[MAX_STACK], top = -1;
+static int queue[MAX_QUEUE], front = 0, count = 0;
+static int memory[MEMORY_SIZE];
 
-    if (scanf("%d", value) != 1) {
-        int ch;
-        while ((ch = getchar()) != '\n' && ch != EOF) {}
-        printf("Invalid input. Enter a number.\n");
-        return 0;
-    }
-    return 1;
-}
-
-static int send_request(int fd, const Request *r)
+static int receive_request(int fd, Request *r)
 {
-    const char *p = (const char *)r;
+    char *p = (char *)r;
     size_t left = sizeof(*r);
 
-    while (left) {
-        ssize_t n = send(fd, p, left, 0);
+    while (left > 0) {
+        ssize_t n = recv(fd, p, left, 0);
+
+        if (n == 0)
+            return 0;
+
         if (n < 0) {
-            if (errno == EINTR) continue;
+            if (errno == EINTR)
+                continue;
             return -1;
         }
-        if (n == 0) return -1;
+
         p += n;
         left -= (size_t)n;
     }
-    return 0;
+
+    return 1;
+}
+
+static void log_message(int fd, const char *msg)
+{
+    char line[MAX_MESSAGE];
+    int len = snprintf(line, sizeof(line), "%s\n", msg);
+
+    if (len <= 0)
+        return;
+
+    if (len >= (int)sizeof(line))
+        len = sizeof(line) - 1;
+
+    int done = 0;
+
+    while (done < len) {
+        ssize_t n = write(fd, line + done,
+                          (size_t)(len - done));
+
+        if (n < 0) {
+            if (errno == EINTR)
+                continue;
+            perror("CORE: FIFO write");
+            return;
+        }
+
+        done += (int)n;
+    }
+}
+
+static void error_response(Response *r, const char *msg)
+{
+    r->status = 0;
+    r->result = 0;
+    snprintf(r->message, sizeof(r->message), "%s", msg);
+}
+
+static void execute(const Request *q, Response *r)
+{
+    int a = q->value1;
+    int b = q->value2;
+
+    r->status = 1;
+    r->result = 0;
+    snprintf(r->message, sizeof(r->message),
+             "Operation successful");
+
+    switch (q->option) {
+    case 1:
+        if (__builtin_add_overflow(a, b, &r->result)) {
+            error_response(r, "Addition overflow");
+            break;
+        }
+        snprintf(r->message, sizeof(r->message),
+                 "CPU: ADD result = %d", r->result);
+        break;
+
+    case 2:
+        if (__builtin_sub_overflow(a, b, &r->result)) {
+            error_response(r, "Subtraction overflow");
+            break;
+        }
+        snprintf(r->message, sizeof(r->message),
+                 "CPU: SUBTRACT result = %d", r->result);
+        break;
+
+    case 3:
+        if (__builtin_mul_overflow(a, b, &r->result)) {
+            error_response(r, "Multiplication overflow");
+            break;
+        }
+        snprintf(r->message, sizeof(r->message),
+                 "CPU: MULTIPLY result = %d", r->result);
+        break;
+
+    case 4:
+        if (b == 0) {
+            error_response(r, "Cannot divide by zero");
+            break;
+        }
+        if (a == INT_MIN && b == -1) {
+            error_response(r, "Division overflow");
+            break;
+        }
+        r->result = a / b;
+        snprintf(r->message, sizeof(r->message),
+                 "CPU: DIVIDE result = %d", r->result);
+        break;
+
+    case 5:
+        if (top == MAX_STACK - 1) {
+            error_response(r, "Stack is full");
+            break;
+        }
+        stack[++top] = a;
+        r->result = a;
+        snprintf(r->message, sizeof(r->message),
+                 "Value pushed onto stack");
+        break;
+
+    case 6:
+        if (top < 0) {
+            error_response(r, "Stack is empty");
+            break;
+        }
+        r->result = stack[top--];
+        snprintf(r->message, sizeof(r->message),
+                 "Value popped from stack");
+        break;
+
+    case 7:
+        if (count == MAX_QUEUE) {
+            error_response(r, "Queue is full");
+            break;
+        }
+        queue[(front + count) % MAX_QUEUE] = a;
+        count++;
+        r->result = a;
+        snprintf(r->message, sizeof(r->message),
+                 "Value added to queue");
+        break;
+
+    case 8:
+        if (count == 0) {
+            error_response(r, "Queue is empty");
+            break;
+        }
+        r->result = queue[front];
+        front = (front + 1) % MAX_QUEUE;
+        count--;
+        snprintf(r->message, sizeof(r->message),
+                 "Value removed from queue");
+        break;
+
+    case 9:
+        if (a < 0 || a >= MEMORY_SIZE) {
+            error_response(r, "Invalid memory index (0-9)");
+            break;
+        }
+        memory[a] = b;
+        r->result = b;
+        snprintf(r->message, sizeof(r->message),
+                 "Value stored in memory");
+        break;
+
+    case 10:
+        if (a < 0 || a >= MEMORY_SIZE) {
+            error_response(r, "Invalid memory index (0-9)");
+            break;
+        }
+        r->result = memory[a];
+        snprintf(r->message, sizeof(r->message),
+                 "Value loaded from memory");
+        break;
+
+    case 11:
+        if (top < 0) {
+            error_response(r, "Stack is empty");
+            break;
+        }
+        r->result = stack[top];
+        snprintf(r->message, sizeof(r->message),
+                 "Top value of stack");
+        break;
+
+    case 12:
+        if (count == 0) {
+            error_response(r, "Queue is empty");
+            break;
+        }
+        r->result = queue[front];
+        snprintf(r->message, sizeof(r->message),
+                 "Front value of queue");
+        break;
+
+    case 13:
+        snprintf(r->message, sizeof(r->message),
+                 "Simulator exit requested");
+        break;
+
+    default:
+        error_response(r, "Invalid operation");
+    }
 }
 
 int main(void)
 {
-    int sock;
+    int server = -1, client = -1, fifo = -1;
+    mqd_t mq = (mqd_t)-1;
     struct sockaddr_un addr;
-    mqd_t mq;
-    Request req;
-    Response res;
+    struct mq_attr attr;
 
-    mq = mq_open(MQ_NAME, O_RDONLY);
-    if (mq == (mqd_t)-1) {
-        perror("UI: mq_open (start Core first)");
+    memset(&attr, 0, sizeof(attr));
+    attr.mq_maxmsg = 10;
+    attr.mq_msgsize = sizeof(Response);
+
+    mq_unlink(MQ_NAME);
+    unlink(SOCKET_PATH);
+
+    if (mkfifo(FIFO_PATH, 0666) == -1 && errno != EEXIST) {
+        perror("CORE: mkfifo");
         return 1;
     }
 
-    sock = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (sock == -1) {
-        perror("UI: socket");
-        mq_close(mq);
-        return 1;
+    printf("CORE: Waiting for Logger FIFO...\n");
+    fflush(stdout);
+
+    fifo = open(FIFO_PATH, O_WRONLY);
+
+    if (fifo == -1) {
+        perror("CORE: open FIFO");
+        goto cleanup;
+    }
+
+    printf("CORE: Logger connected.\n");
+    fflush(stdout);
+
+    mq = mq_open(MQ_NAME, O_CREAT | O_WRONLY, 0666, &attr);
+
+    if (mq == (mqd_t)-1) {
+        perror("CORE: mq_open");
+        goto cleanup;
+    }
+
+    server = socket(AF_UNIX, SOCK_STREAM, 0);
+
+    if (server == -1) {
+        perror("CORE: socket");
+        goto cleanup;
     }
 
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
-    snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", SOCKET_PATH);
+    snprintf(addr.sun_path, sizeof(addr.sun_path),
+             "%s", SOCKET_PATH);
 
-    if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-        perror("UI: connect (start Core first)");
-        close(sock);
-        mq_close(mq);
-        return 1;
+    if (bind(server, (struct sockaddr *)&addr,
+             sizeof(addr)) == -1) {
+        perror("CORE: bind");
+        goto cleanup;
     }
 
-    printf("UI: Connected to Core.\n");
+    if (listen(server, 1) == -1) {
+        perror("CORE: listen");
+        goto cleanup;
+    }
+
+    printf("CORE: Waiting for UI connection...\n");
+    fflush(stdout);
+
+    client = accept(server, NULL, NULL);
+
+    if (client == -1) {
+        perror("CORE: accept");
+        goto cleanup;
+    }
+
+    printf("CORE: UI connected.\n");
+    log_message(fifo, "Logger connected. Core is ready.");
 
     while (1) {
-        printf("\n====== MULTI-PROCESS SIMULATOR ======\n");
-        printf("1. Add\n2. Subtract\n3. Multiply\n4. Divide\n");
-        printf("5. Stack Push\n6. Stack Pop\n");
-        printf("7. Queue Enqueue\n8. Queue Dequeue\n");
-        printf("9. Memory Store\n10. Memory Load\n");
-        printf("11. Stack Peek\n12. Queue Peek\n13. Exit\n");
-        printf("=====================================\n");
+        Request req;
+        Response res;
+        char logline[MAX_MESSAGE];
 
-        if (!read_number("Select an option: ", &req.option))
-            continue;
+        int got = receive_request(client, &req);
 
-        if (req.option < 1 || req.option > 13) {
-            printf("Choose an option from 1 to 13.\n");
-            continue;
-        }
-
-        req.value1 = 0;
-        req.value2 = 0;
-
-        if (req.option >= 1 && req.option <= 4) {
-            if (!read_number("Enter first number: ", &req.value1) ||
-                !read_number("Enter second number: ", &req.value2))
-                continue;
-        } else if (req.option == 5 || req.option == 7) {
-            if (!read_number("Enter value: ", &req.value1))
-                continue;
-        } else if (req.option == 9) {
-            if (!read_number("Enter memory index (0-9): ", &req.value1) ||
-                !read_number("Enter value to store: ", &req.value2))
-                continue;
-        } else if (req.option == 10) {
-            if (!read_number("Enter memory index (0-9): ", &req.value1))
-                continue;
-        }
-
-        if (send_request(sock, &req) == -1) {
-            perror("UI: send");
+        if (got == 0) {
+            printf("CORE: UI disconnected.\n");
             break;
         }
 
-        if (mq_receive(mq, (char *)&res, sizeof(res), NULL) == -1) {
-            perror("UI: mq_receive");
+        if (got == -1) {
+            perror("CORE: receive");
             break;
         }
 
-        printf("\n------------- RESULT -------------\n");
-        printf("Status : %s\n", res.status ? "SUCCESS" : "ERROR");
-        printf("Message: %s\n", res.message);
-        printf("Result : %d\n", res.result);
-        printf("----------------------------------\n");
+        printf("CORE: Received option %d\n", req.option);
+
+        execute(&req, &res);
+
+        printf("CORE: %s\n", res.message);
+
+        if (mq_send(mq, (const char *)&res,
+                    sizeof(res), 0) == -1) {
+            perror("CORE: mq_send");
+            break;
+        }
+
+        snprintf(logline, sizeof(logline),
+                 "%s | Result: %d",
+                 res.message, res.result);
+
+        log_message(fifo, logline);
 
         if (req.option == 13)
             break;
     }
 
-    close(sock);
-    mq_close(mq);
-    printf("UI: Exiting.\n");
+cleanup:
+    if (client != -1)
+        close(client);
+
+    if (server != -1)
+        close(server);
+
+    if (fifo != -1)
+        close(fifo);
+
+    if (mq != (mqd_t)-1)
+        mq_close(mq);
+
+    mq_unlink(MQ_NAME);
+    unlink(SOCKET_PATH);
+    unlink(FIFO_PATH);
+
+    printf("CORE: Shutting down.\n");
     return 0;
 }
