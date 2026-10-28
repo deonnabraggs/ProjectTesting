@@ -2,68 +2,78 @@
 
 ## 1. Performance Metrics
 
-- Execution Time: Time taken by a process to run.
-- CPU Usage: Percentage of CPU used by a process.
-- User CPU Time: Time spent executing user-level code.
-- System CPU Time: Time spent performing operating system tasks.
-- Memory Usage: Maximum resident memory used by a process.
-- Exit Status: Indicates whether a process terminated successfully.
+- Execution Time: The time taken by a process to complete its execution.
+- CPU Usage: The percentage of CPU resources utilized by a process during execution.
+- User CPU Time: The amount of time the CPU spends executing instructions in user mode for a process.
+- System CPU Time: The amount of time the CPU spends performing operating system tasks on behalf of a process.
+- Maximum Memory Usage: The maximum amount of physical memory occupied by a process during execution.
+- Exit Status: A value that indicates whether a process terminated successfully or encountered an error.
 
 ## 2. Standalone Simulator — Performance Results
 
-| Performance Metric | Result |
-|---|---|
-| Execution Time | 23.99 seconds |
-| CPU Usage | 0% |
-| User CPU Time | 0.00 s |
-| System CPU Time | 0.00 s |
-| Maximum Memory Usage | 1,912 KB |
-| Exit Status | 0 |
+| Performance Metric   | Result        |
+| -------------------- | ------------- |
+| Execution Time       | 23.99 seconds |
+| CPU Usage            | 0%            |
+| User CPU Time        | 0.00 seconds  |
+| System CPU Time      | 0.00 seconds  |
+| Maximum Memory Usage | 1,912 KB      |
+| Exit Status          | 0             |
+
+The standalone simulator completed its execution in 23.99 seconds, reported 0% CPU usage, and used a maximum of 1,912 KB of memory. Its exit status was 0, indicating successful termination.
 
 ## 3. Multi-Process Simulator — Performance Results
 
-| Performance Metric | UI Process | Core Process | Logger Process |
-|---|---:|---:|---:|
-| Execution Time | 58.32 s | 65.82 s | 76.36 s |
-| CPU Usage | 0% | 0% | 0% |
-| User CPU Time | 0.00 s | 0.00 s | 0.00 s |
-| System CPU Time | 0.00 s | 0.00 s | 0.00 s |
-| Maximum Memory Usage | 1,848 KB | 1,660 KB | 1,528 KB |
-| Exit Status | 0 | 0 | 0 |
+| Performance Metric   | UI Process    | Core Process  | Logger Process |
+| -------------------- | ------------- | ------------- | -------------- |
+| Execution Time       | 17.10 seconds | 25.24 seconds | 32.50 seconds  |
+| CPU Usage            | 0%            | 0%            | 0%             |
+| User CPU Time        | 0.00 seconds  | 0.00 seconds  | 0.00 seconds   |
+| System CPU Time      | 0.00 seconds  | 0.00 seconds  | 0.00 seconds   |
+| Maximum Memory Usage | 1,836 KB      | 1,780 KB      | 1,584 KB       |
+| Exit Status          | 0             | 0             | 0              |
+
+The UI process completed in 17.10 seconds and used a maximum of 1,836 KB of memory. The Core process completed in 25.24 seconds and used a maximum of 1,780 KB of memory. The Logger process completed in 32.50 seconds and used a maximum of 1,584 KB of memory. All three processes reported an exit status of 0, indicating successful termination.
 
 ## 4. Comparison Between Architectures
 
-| Feature | Standalone Simulator | Multi-Process Simulator |
-|---|---|---|
-| Architecture | Single process | Three independent processes |
-| Components | UI, processing, and logging in one process | Separate UI, Core, and Logger processes |
-| Communication | Direct function calls | IPC mechanisms |
-| Modularity | Lower | Higher |
-| Communication overhead | Minimal | Additional IPC overhead |
-| Maximum memory usage | 1,912 KB | UI: 1,848 KB; Core: 1,660 KB; Logger: 1,528 KB |
+| Feature                | Standalone Simulator                                                    | Multi-Process Simulator                                                                           |
+| ---------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Architecture           | The simulator executes within a single process.                         | The simulator executes through three independent processes.                                       |
+| Components             | The UI, processing logic, and logging operate within one process.       | The UI, Core, and Logger operate as separate processes.                                           |
+| Communication          | Components communicate through direct function calls.                   | Processes communicate through inter-process communication mechanisms.                             |
+| Modularity             | The components are less independent because they belong to one process. | The components are more independent and easier to maintain separately.                            |
+| Communication Overhead | The simulator has minimal inter-process communication overhead.         | The simulator introduces additional communication overhead between processes.                     |
+| Maximum Memory Usage   | The recorded maximum memory usage is 1,912 KB.                          | The recorded maximum memory usage is 1,836 KB for UI, 1,780 KB for Core, and 1,584 KB for Logger. |
 
 ## 5. Performance Analysis
 
-The standalone simulator performs all operations within one process, avoiding inter-process communication overhead.
+The standalone simulator performs all operations within a single process, so it does not require communication between independent processes.
 
-The multi-process simulator separates the UI, Core, and Logger into independent processes. This improves modularity and makes each component easier to manage and maintain.
+The multi-process simulator separates the user interface, processing logic, and logging functionality into three independent processes. This architecture improves modularity because each process handles a specific responsibility.
+
+The UI process receives user input and sends operation requests to the Core process. The Core process performs the requested operations and sends the results back to the UI. The Logger process receives log messages from the Core process and displays them in the terminal.
 
 ### IPC Overhead
 
-IPC overhead refers to the additional processing and communication work required when separate processes exchange data.
+Inter-process communication overhead refers to the additional processing required when independent processes exchange data.
 
-In the multi-process simulator, the UI sends requests to Core through a Unix Domain Socket. Core sends results to the UI through a POSIX Message Queue and sends log messages to Logger through a FIFO (Named Pipe).
+The simulator uses a Unix Domain Socket for communication from UI to Core, a POSIX Message Queue for communication from Core to UI, and a FIFO (Named Pipe) for communication from Core to Logger.
 
-These communication mechanisms require additional operations compared with direct function calls in the standalone simulator.
+These communication mechanisms require additional operations compared with direct function calls in a standalone simulator.
 
-The exact numerical IPC overhead was not measured separately in this project. Therefore, its precise time or percentage cannot be determined from the recorded performance results alone.
+The recorded UI execution time was 17.10 seconds, the Core execution time was 25.24 seconds, and the Logger execution time was 32.50 seconds. These times may include waiting for input, connections, and messages, so they should not be interpreted as pure processing time or used to calculate exact IPC overhead.
 
-The recorded CPU usage was 0%, with user and system CPU times displayed as 0.00 seconds.
+All three processes reported 0% CPU usage, with user and system CPU times displayed as 0.00 seconds. These values are rounded measurements and do not indicate that the processes performed no work.
 
 ## 6. Conclusion
 
-The Week 2 Multi-Process Simulator demonstrates the separation of UI, Core, and Logger into three independent processes.
+The Week 2.2 Multi-Process Simulator demonstrates how a program can be divided into three independent processes to improve modularity and separate responsibilities.
 
-The project implements Unix Domain Sockets, POSIX Message Queues, and FIFO for inter-process communication. This architecture improves modularity but introduces additional communication work.
+The project implements Unix Domain Sockets, POSIX Message Queues, and FIFO for communication between the UI, Core, and Logger processes.
 
-The performance comparison presents the recorded execution time, CPU usage, and memory usage for the standalone and multi-process simulators. IPC overhead is discussed qualitatively because it was not measured separately.
+The UI successfully performed addition, subtraction, multiplication, and division, producing the expected results of 25, 9, 36, and 4, respectively.
+
+The benchmark results show that the UI process completed in 17.10 seconds, the Core process completed in 25.24 seconds, and the Logger process completed in 32.50 seconds. Their maximum memory usages were 1,836 KB, 1,780 KB, and 1,584 KB, respectively.
+
+All three processes terminated successfully with exit status 0. The results demonstrate the functionality of the multi-process architecture, while the exact numerical IPC overhead remains unmeasured.
