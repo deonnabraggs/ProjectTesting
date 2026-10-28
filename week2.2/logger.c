@@ -1,83 +1,61 @@
-
-#include "ipc.h"
+#define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
-#include <string.h>
 #include <unistd.h>
-#include <errno.h>
 #include <fcntl.h>
-
-static int read_full(int fd, void *buffer, size_t size)
-{
-    size_t total = 0;
-    char *p = buffer;
-
-    while (total < size) {
-        ssize_t n = read(fd, p + total, size - total);
-
-        if (n == 0)
-            return total == 0 ? 0 : -1;
-
-        if (n < 0) {
-            if (errno == EINTR)
-                continue;
-            return -1;
-        }
-
-        total += (size_t)n;
-    }
-
-    return 1;
-}
+#include <errno.h>
+#include <sys/stat.h>
+#include "ipc.h"
 
 int main(void)
 {
-    /* Start Logger before Core; FIFO open waits for Core's writer. */
-    int fifo_fd = open(FIFO_PATH, O_RDONLY);
+    int fd;
+    char buffer[MAX_MESSAGE];
+    size_t used = 0;
 
-    if (fifo_fd == -1) {
-        perror("Logger: open FIFO - start Core after creating FIFO");
+    if (mkfifo(FIFO_PATH, 0666) == -1 && errno != EEXIST) {
+        perror("LOGGER: mkfifo");
         return 1;
     }
 
-    FILE *log_file = fopen("execution.log", "a");
-    if (!log_file) {
-        perror("Logger: execution.log");
-        close(fifo_fd);
+    printf("Logger process starting...\n");
+    printf("Waiting for Core process...\n");
+    fflush(stdout);
+
+    fd = open(FIFO_PATH, O_RDONLY);
+    if (fd == -1) {
+        perror("LOGGER: open FIFO");
         return 1;
     }
 
-    printf("LOGGER: Running and waiting for Core messages...\n");
+    printf("Logger connected. Waiting for messages...\n");
     fflush(stdout);
 
     while (1) {
-        LogMessage log;
-        int rc = read_full(fifo_fd, &log, sizeof(log));
+        char ch;
+        ssize_t n = read(fd, &ch, 1);
 
-        if (rc <= 0)
+        if (n == 0)
             break;
 
-        if (log.status == -1) {
-            printf("LOGGER: Shutdown received.\n");
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            perror("LOGGER: read");
             break;
         }
 
-        const char *status = log.status ? "SUCCESS" : "ERROR";
-
-        printf("[LOGGER] %s | Command: %d | %s | Result: %d\n",
-               status, log.command, log.message, log.result);
-
-        fprintf(log_file,
-                "%s | Command: %d | %s | Result: %d\n",
-                status, log.command, log.message, log.result);
-
-        fflush(log_file);
-        fflush(stdout);
+        if (ch == '\n') {
+            buffer[used] = '\0';
+            printf("------------------------------------------\n");
+            printf("%s\n", buffer);
+            fflush(stdout);
+            used = 0;
+        } else if (used < sizeof(buffer) - 1) {
+            buffer[used++] = ch;
+        }
     }
 
-    fclose(log_file);
-    close(fifo_fd);
-
-    printf("LOGGER: Process stopped.\n");
+    close(fd);
+    printf("Logger process exiting.\n");
     return 0;
 }
