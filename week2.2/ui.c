@@ -1,90 +1,55 @@
-
-#include "ipc.h"
+#define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <errno.h>
+#include <fcntl.h>
+#include <mqueue.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <mqueue.h>
+#include "ipc.h"
 
-static int read_int(const char *prompt, int *value)
+static int read_number(const char *prompt, int *value)
 {
-    char line[128];
-    char extra;
-    long number;
-
     printf("%s", prompt);
     fflush(stdout);
 
-    if (!fgets(line, sizeof(line), stdin))
+    if (scanf("%d", value) != 1) {
+        int ch;
+        while ((ch = getchar()) != '\n' && ch != EOF) {}
+        printf("Invalid input. Enter a number.\n");
         return 0;
-
-    if (sscanf(line, " %ld %c", &number, &extra) != 1 ||
-        number < -2147483647L - 1 || number > 2147483647L) {
-        printf("Invalid input. Please enter an integer.\n");
-        return -1;
     }
-
-    *value = (int)number;
     return 1;
 }
 
-static int send_full(int fd, const void *buffer, size_t size)
+static int send_request(int fd, const Request *r)
 {
-    size_t sent = 0;
-    const char *p = buffer;
+    const char *p = (const char *)r;
+    size_t left = sizeof(*r);
 
-    while (sent < size) {
-        ssize_t n = write(fd, p + sent, size - sent);
-
-        if (n < 0) {
-            if (errno == EINTR)
-                continue;
-            return -1;
-        }
-
-        if (n == 0)
-            return -1;
-
-        sent += (size_t)n;
+    while (left) {
+        ssize_t n = send(fd, p, left, 0);
+        if (n < 0) return -1;
+        if (n == 0) return -1;
+        p += n;
+        left -= (size_t)n;
     }
-
     return 0;
-}
-
-static void show_menu(void)
-{
-    printf("\n====================================\n");
-    printf("   WEEK 4 MULTI-PROCESS SIMULATOR\n");
-    printf("====================================\n");
-    printf("1.  Add\n");
-    printf("2.  Subtract\n");
-    printf("3.  Multiply\n");
-    printf("4.  Divide\n");
-    printf("5.  Stack Push\n");
-    printf("6.  Stack Pop\n");
-    printf("7.  Queue Enqueue\n");
-    printf("8.  Queue Dequeue\n");
-    printf("9.  Memory Store\n");
-    printf("10. Memory Load\n");
-    printf("11. Stack Peek\n");
-    printf("12. Queue Peek\n");
-    printf("13. Exit\n");
-    printf("====================================\n");
 }
 
 int main(void)
 {
-    int sock = -1;
-    mqd_t mq = (mqd_t)-1;
+    int sock;
+    struct sockaddr_un addr;
+    mqd_t mq;
+    Request req;
+    Response res;
 
-    /* Core must be started before UI. */
+    /* Core must be started first so this queue already exists. */
     mq = mq_open(MQ_NAME, O_RDONLY);
     if (mq == (mqd_t)-1) {
-        perror("UI: mq_open - start Core first");
+        perror("UI: mq_open (start Core first)");
         return 1;
     }
 
@@ -95,118 +60,79 @@ int main(void)
         return 1;
     }
 
-    struct sockaddr_un addr;
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
     snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", SOCKET_PATH);
 
     if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-        perror("UI: connect - check that Core is running");
+        perror("UI: connect (start Core first)");
         close(sock);
         mq_close(mq);
         return 1;
     }
 
-    printf("UI: Connected to Core through Unix domain socket.\n");
+    printf("UI: Connected to Core.\n");
 
     while (1) {
-        CoreMessage req;
-        CoreResponse response;
-        int choice;
-        int rc;
+        printf("\n====== MULTI-PROCESS SIMULATOR ======\n");
+        printf("1. Add\n2. Subtract\n3. Multiply\n4. Divide\n");
+        printf("5. Stack Push\n6. Stack Pop\n");
+        printf("7. Queue Enqueue\n8. Queue Dequeue\n");
+        printf("9. Memory Store\n10. Memory Load\n");
+        printf("11. Stack Peek\n12. Queue Peek\n13. Exit\n");
+        printf("=====================================\n");
 
-        show_menu();
-
-        rc = read_int("Select an option (1-13): ", &choice);
-        if (rc == 0)
-            break;
-        if (rc < 0)
+        if (!read_number("Select an option: ", &req.option))
             continue;
 
-        if (choice < 1 || choice > 13) {
-            printf("Please select an option from 1 to 13.\n");
+        if (req.option < 1 || req.option > 13) {
+            printf("Choose an option from 1 to 13.\n");
             continue;
         }
 
-        memset(&req, 0, sizeof(req));
-        req.command = choice;
+        req.value1 = 0;
+        req.value2 = 0;
 
-        if (choice >= 1 && choice <= 4) {
-            rc = read_int("Enter first number: ", &req.value1);
-            if (rc <= 0) {
-                if (rc == 0) break;
+        if (req.option >= 1 && req.option <= 4) {
+            if (!read_number("Enter first number: ", &req.value1) ||
+                !read_number("Enter second number: ", &req.value2))
                 continue;
-            }
-
-            rc = read_int("Enter second number: ", &req.value2);
-            if (rc <= 0) {
-                if (rc == 0) break;
+        } else if (req.option == 5 || req.option == 7) {
+            if (!read_number("Enter value: ", &req.value1))
                 continue;
-            }
-        } else if (choice == 5 || choice == 7) {
-            rc = read_int("Enter value: ", &req.value1);
-            if (rc <= 0) {
-                if (rc == 0) break;
+        } else if (req.option == 9) {
+            if (!read_number("Enter memory index (0-9): ", &req.value1) ||
+                !read_number("Enter value to store: ", &req.value2))
                 continue;
-            }
-        } else if (choice == 9) {
-            rc = read_int("Enter memory address (0-99): ",
-                          &req.value1);
-            if (rc <= 0) {
-                if (rc == 0) break;
+        } else if (req.option == 10) {
+            if (!read_number("Enter memory index (0-9): ", &req.value1))
                 continue;
-            }
-
-            rc = read_int("Enter value to store: ", &req.value2);
-            if (rc <= 0) {
-                if (rc == 0) break;
-                continue;
-            }
-        } else if (choice == 10) {
-            rc = read_int("Enter memory address (0-99): ",
-                          &req.value1);
-            if (rc <= 0) {
-                if (rc == 0) break;
-                continue;
-            }
         }
 
-        /* IPC technique 1: UI -> Core using Unix domain socket. */
-        if (send_full(sock, &req, sizeof(req)) == -1) {
+        /* IPC 1: UI -> Core using Unix Domain Socket */
+        if (send_request(sock, &req) == -1) {
             perror("UI: send");
             break;
         }
 
-        /* IPC technique 2: receive Core's response via POSIX MQ. */
-        ssize_t received;
-        do {
-            received = mq_receive(mq, (char *)&response,
-                                  sizeof(response), NULL);
-        } while (received == -1 && errno == EINTR);
-
-        if (received != (ssize_t)sizeof(response)) {
+        /* IPC 2: Core -> UI using POSIX Message Queue */
+        if (mq_receive(mq, (char *)&res, sizeof(res), NULL) == -1) {
             perror("UI: mq_receive");
             break;
         }
 
-        printf("\n--------------- OUTPUT ---------------\n");
-        printf("Process      : UI -> Core\n");
-        printf("Status       : %s\n",
-               response.status ? "SUCCESS" : "ERROR");
-        printf("Message      : %s\n", response.message);
+        printf("\n------------- RESULT -------------\n");
+        printf("Status : %s\n", res.status ? "SUCCESS" : "ERROR");
+        printf("Message: %s\n", res.message);
+        printf("Result : %d\n", res.result);
+        printf("----------------------------------\n");
 
-        if (response.status && choice != 13)
-            printf("Result       : %d\n", response.result);
-
-        printf("--------------------------------------\n");
-
-        if (choice == 13)
+        if (req.option == 13)
             break;
     }
 
     close(sock);
     mq_close(mq);
-
-    printf("UI: Process stopped.\n");
+    printf("UI: Exiting.\n");
     return 0;
 }
