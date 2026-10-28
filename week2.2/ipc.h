@@ -1,7 +1,6 @@
+
 #ifndef IPC_H
 #define IPC_H
-
-#define _POSIX_C_SOURCE 200809L
 
 #define SOCKET_PATH "/tmp/week2_2_core.sock"
 #define FIFO_PATH   "/tmp/week2_2_logger.fifo"
