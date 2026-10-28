@@ -1,337 +1,312 @@
-
-#include "ipc.h"
+#define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <errno.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <limits.h>
+#include <mqueue.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/stat.h>
-#include <mqueue.h>
+#include "ipc.h"
 
+static int stack[MAX_STACK], top = -1;
+static int queue[MAX_QUEUE], front = 0, count = 0;
 static int memory[MEMORY_SIZE];
-static int memory_valid[MEMORY_SIZE];
 
-static int stack_data[STACK_SIZE];
-static int stack_top = -1;
-
-static int queue_data[QUEUE_SIZE];
-static int queue_front = 0;
-static int queue_rear = 0;
-static int queue_count = 0;
-
-static int read_full(int fd, void *buffer, size_t size)
+static int receive_request(int fd, Request *r)
 {
-    size_t total = 0;
-    char *p = buffer;
+    char *p = (char *)r;
+    size_t left = sizeof(*r);
 
-    while (total < size) {
-        ssize_t n = read(fd, p + total, size - total);
-
-        if (n == 0)
-            return total == 0 ? 0 : -1;
-
+    while (left) {
+        ssize_t n = recv(fd, p, left, 0);
+        if (n == 0) return 0;
         if (n < 0) {
-            if (errno == EINTR)
-                continue;
+            if (errno == EINTR) continue;
             return -1;
         }
-
-        total += (size_t)n;
+        p += n;
+        left -= (size_t)n;
     }
-
     return 1;
 }
 
-static int write_full(int fd, const void *buffer, size_t size)
+static void log_message(int fd, const char *msg)
 {
-    size_t total = 0;
-    const char *p = buffer;
+    char line[MAX_MESSAGE];
+    int len = snprintf(line, sizeof(line), "%s\n", msg);
+    if (len <= 0) return;
+    if (len >= (int)sizeof(line)) len = sizeof(line) - 1;
 
-    while (total < size) {
-        ssize_t n = write(fd, p + total, size - total);
-
+    int done = 0;
+    while (done < len) {
+        ssize_t n = write(fd, line + done, (size_t)(len - done));
         if (n < 0) {
-            if (errno == EINTR)
-                continue;
-            return -1;
+            if (errno == EINTR) continue;
+            perror("CORE: FIFO write");
+            return;
         }
-
-        if (n == 0)
-            return -1;
-
-        total += (size_t)n;
+        done += (int)n;
     }
-
-    return 0;
 }
 
-static void set_response(CoreResponse *r, int status,
-                         int result, const char *message)
+static void error_response(Response *r, const char *msg)
 {
-    r->status = status;
-    r->result = result;
-    snprintf(r->message, sizeof(r->message), "%s", message);
+    r->status = 0;
+    r->result = 0;
+    snprintf(r->message, sizeof(r->message), "%s", msg);
 }
 
-static void execute_command(const CoreMessage *req, CoreResponse *r)
+static void execute(const Request *q, Response *r)
 {
-    int a = req->value1;
-    int b = req->value2;
+    int a = q->value1, b = q->value2;
+    r->status = 1;
+    r->result = 0;
+    snprintf(r->message, sizeof(r->message), "Operation successful");
 
-    switch (req->command) {
-    case CMD_ADD:
-        set_response(r, 1, a + b, "Addition completed");
+    switch (q->option) {
+    case 1:
+        if (__builtin_add_overflow(a, b, &r->result)) {
+            error_response(r, "Addition overflow"); break;
+        }
+        snprintf(r->message, sizeof(r->message),
+                 "CPU: ADD result = %d", r->result);
         break;
 
-    case CMD_SUBTRACT:
-        set_response(r, 1, a - b, "Subtraction completed");
+    case 2:
+        if (__builtin_sub_overflow(a, b, &r->result)) {
+            error_response(r, "Subtraction overflow"); break;
+        }
+        snprintf(r->message, sizeof(r->message),
+                 "CPU: SUBTRACT result = %d", r->result);
         break;
 
-    case CMD_MULTIPLY:
-        set_response(r, 1, a * b, "Multiplication completed");
+    case 3:
+        if (__builtin_mul_overflow(a, b, &r->result)) {
+            error_response(r, "Multiplication overflow"); break;
+        }
+        snprintf(r->message, sizeof(r->message),
+                 "CPU: MULTIPLY result = %d", r->result);
         break;
 
-    case CMD_DIVIDE:
+    case 4:
         if (b == 0) {
-            set_response(r, 0, 0, "Error: division by zero");
-        } else {
-            set_response(r, 1, a / b, "Division completed (integer result)");
+            error_response(r, "Cannot divide by zero"); break;
         }
+        if (a == INT_MIN && b == -1) {
+            error_response(r, "Division overflow"); break;
+        }
+        r->result = a / b;
+        snprintf(r->message, sizeof(r->message),
+                 "CPU: DIVIDE result = %d", r->result);
         break;
 
-    case CMD_PUSH:
-        if (stack_top >= STACK_SIZE - 1) {
-            set_response(r, 0, 0, "Error: stack is full");
-        } else {
-            stack_data[++stack_top] = a;
-            set_response(r, 1, a, "Value pushed onto stack");
+    case 5:
+        if (top == MAX_STACK - 1) {
+            error_response(r, "Stack is full"); break;
         }
+        stack[++top] = a;
+        r->result = a;
+        snprintf(r->message, sizeof(r->message),
+                 "Value pushed onto stack");
         break;
 
-    case CMD_POP:
-        if (stack_top < 0) {
-            set_response(r, 0, 0, "Error: stack is empty");
-        } else {
-            int value = stack_data[stack_top--];
-            set_response(r, 1, value, "Value popped from stack");
+    case 6:
+        if (top < 0) {
+            error_response(r, "Stack is empty"); break;
         }
+        r->result = stack[top--];
+        snprintf(r->message, sizeof(r->message),
+                 "Value popped from stack");
         break;
 
-    case CMD_STACK_PEEK:
-        if (stack_top < 0) {
-            set_response(r, 0, 0, "Error: stack is empty");
-        } else {
-            set_response(r, 1, stack_data[stack_top],
-                         "Top stack value");
+    case 7:
+        if (count == MAX_QUEUE) {
+            error_response(r, "Queue is full"); break;
         }
+        queue[(front + count) % MAX_QUEUE] = a;
+        count++;
+        r->result = a;
+        snprintf(r->message, sizeof(r->message),
+                 "Value added to queue");
         break;
 
-    case CMD_ENQUEUE:
-        if (queue_count >= QUEUE_SIZE) {
-            set_response(r, 0, 0, "Error: queue is full");
-        } else {
-            queue_data[queue_rear] = a;
-            queue_rear = (queue_rear + 1) % QUEUE_SIZE;
-            queue_count++;
-            set_response(r, 1, a, "Value added to queue");
+    case 8:
+        if (count == 0) {
+            error_response(r, "Queue is empty"); break;
         }
+        r->result = queue[front];
+        front = (front + 1) % MAX_QUEUE;
+        count--;
+        snprintf(r->message, sizeof(r->message),
+                 "Value removed from queue");
         break;
 
-    case CMD_DEQUEUE:
-        if (queue_count == 0) {
-            set_response(r, 0, 0, "Error: queue is empty");
-        } else {
-            int value = queue_data[queue_front];
-            queue_front = (queue_front + 1) % QUEUE_SIZE;
-            queue_count--;
-            set_response(r, 1, value, "Value removed from queue");
-        }
-        break;
-
-    case CMD_QUEUE_PEEK:
-        if (queue_count == 0) {
-            set_response(r, 0, 0, "Error: queue is empty");
-        } else {
-            set_response(r, 1, queue_data[queue_front],
-                         "Front queue value");
-        }
-        break;
-
-    case CMD_STORE:
+    case 9:
         if (a < 0 || a >= MEMORY_SIZE) {
-            set_response(r, 0, 0, "Error: invalid memory address");
-        } else {
-            memory[a] = b;
-            memory_valid[a] = 1;
-            set_response(r, 1, b, "Value stored in memory");
+            error_response(r, "Invalid memory index (0-9)"); break;
         }
+        memory[a] = b;
+        r->result = b;
+        snprintf(r->message, sizeof(r->message),
+                 "Value stored in memory");
         break;
 
-    case CMD_LOAD:
+    case 10:
         if (a < 0 || a >= MEMORY_SIZE) {
-            set_response(r, 0, 0, "Error: invalid memory address");
-        } else if (!memory_valid[a]) {
-            set_response(r, 0, 0, "Error: memory address is empty");
-        } else {
-            set_response(r, 1, memory[a], "Value loaded from memory");
+            error_response(r, "Invalid memory index (0-9)"); break;
         }
+        r->result = memory[a];
+        snprintf(r->message, sizeof(r->message),
+                 "Value loaded from memory");
         break;
 
-    case CMD_EXIT:
-        set_response(r, 1, 0, "Simulator shutting down");
+    case 11:
+        if (top < 0) {
+            error_response(r, "Stack is empty"); break;
+        }
+        r->result = stack[top];
+        snprintf(r->message, sizeof(r->message),
+                 "Top value of stack");
+        break;
+
+    case 12:
+        if (count == 0) {
+            error_response(r, "Queue is empty"); break;
+        }
+        r->result = queue[front];
+        snprintf(r->message, sizeof(r->message),
+                 "Front value of queue");
+        break;
+
+    case 13:
+        snprintf(r->message, sizeof(r->message),
+                 "Simulator exit requested");
         break;
 
     default:
-        set_response(r, 0, 0, "Error: invalid command");
-        break;
+        error_response(r, "Invalid operation");
     }
 }
 
 int main(void)
 {
-    int server_fd = -1;
-    int client_fd = -1;
-    int fifo_fd = -1;
+    int server = -1, client = -1, fifo = -1;
     mqd_t mq = (mqd_t)-1;
-    int exit_requested = 0;
-
+    struct sockaddr_un addr;
     struct mq_attr attr;
+
     memset(&attr, 0, sizeof(attr));
     attr.mq_maxmsg = 10;
-    attr.mq_msgsize = sizeof(CoreResponse);
+    attr.mq_msgsize = sizeof(Response);
 
     /* Remove stale IPC objects from an earlier run. */
     mq_unlink(MQ_NAME);
     unlink(SOCKET_PATH);
-    unlink(FIFO_PATH);
-
-    mq = mq_open(MQ_NAME, O_CREAT | O_WRONLY, 0666, &attr);
-    if (mq == (mqd_t)-1) {
-        perror("Core: mq_open");
-        return 1;
-    }
 
     if (mkfifo(FIFO_PATH, 0666) == -1 && errno != EEXIST) {
-        perror("Core: mkfifo");
-        mq_close(mq);
-        mq_unlink(MQ_NAME);
+        perror("CORE: mkfifo");
         return 1;
     }
+
+    printf("CORE: Waiting for Logger FIFO...\n");
+    fflush(stdout);
 
     /* Wait for Logger to open the FIFO for reading. */
-    fifo_fd = open(FIFO_PATH, O_WRONLY);
-    if (fifo_fd == -1) {
-        perror("Core: open FIFO");
-        mq_close(mq);
-        mq_unlink(MQ_NAME);
-        unlink(FIFO_PATH);
-        return 1;
-    }
-
-    server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (server_fd == -1) {
-        perror("Core: socket");
+    fifo = open(FIFO_PATH, O_WRONLY);
+    if (fifo == -1) {
+        perror("CORE: open FIFO");
         goto cleanup;
     }
 
-    struct sockaddr_un addr;
+    printf("CORE: Logger connected.\n");
+
+    /* Create response queue before UI starts. */
+    mq = mq_open(MQ_NAME, O_CREAT | O_WRONLY, 0666, &attr);
+    if (mq == (mqd_t)-1) {
+        perror("CORE: mq_open");
+        goto cleanup;
+    }
+
+    server = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (server == -1) {
+        perror("CORE: socket");
+        goto cleanup;
+    }
+
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
     snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", SOCKET_PATH);
 
-    if (bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-        perror("Core: bind");
+    if (bind(server, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+        perror("CORE: bind");
         goto cleanup;
     }
 
-    if (listen(server_fd, 1) == -1) {
-        perror("Core: listen");
+    if (listen(server, 1) == -1) {
+        perror("CORE: listen");
         goto cleanup;
     }
 
-    printf("CORE: Waiting for UI on Unix domain socket...\n");
+    printf("CORE: Waiting for UI connection...\n");
     fflush(stdout);
 
-    client_fd = accept(server_fd, NULL, NULL);
-    if (client_fd == -1) {
-        perror("Core: accept");
+    client = accept(server, NULL, NULL);
+    if (client == -1) {
+        perror("CORE: accept");
         goto cleanup;
     }
 
-    printf("CORE: UI connected. Simulator is ready.\n");
-    fflush(stdout);
+    printf("CORE: UI connected.\n");
+    log_message(fifo, "Logger connected. Core is ready.");
 
-    while (!exit_requested) {
-        CoreMessage req;
-        CoreResponse response;
-        LogMessage log;
+    while (1) {
+        Request req;
+        Response res;
+        char logline[MAX_MESSAGE];
 
-        int rc = read_full(client_fd, &req, sizeof(req));
-        if (rc <= 0)
+        int got = receive_request(client, &req);
+        if (got == 0) {
+            printf("CORE: UI disconnected.\n");
             break;
-
-        execute_command(&req, &response);
-
-        /* IPC technique 2: Core -> UI using POSIX message queue. */
-        if (mq_send(mq, (const char *)&response,
-                    sizeof(response), 0) == -1) {
-            perror("Core: mq_send");
+        }
+        if (got == -1) {
+            perror("CORE: receive");
             break;
         }
 
-        /* IPC technique 3: Core -> Logger using named FIFO. */
-        memset(&log, 0, sizeof(log));
-        log.status = response.status;
-        log.command = req.command;
-        log.result = response.result;
-        snprintf(log.message, sizeof(log.message), "%s",
-                 response.message);
+        printf("CORE: Received option %d\n", req.option);
+        execute(&req, &res);
+        printf("CORE: %s\n", res.message);
 
-        if (write_full(fifo_fd, &log, sizeof(log)) == -1) {
-            perror("Core: write FIFO");
+        /* Core -> UI: POSIX Message Queue */
+        if (mq_send(mq, (const char *)&res, sizeof(res), 0) == -1) {
+            perror("CORE: mq_send");
             break;
         }
 
-        printf("CORE: Command %d -> %s\n",
-               req.command, response.message);
-        fflush(stdout);
+        /* Core -> Logger: FIFO */
+        snprintf(logline, sizeof(logline), "%s | Result: %d",
+                 res.message, res.result);
+        log_message(fifo, logline);
 
-        if (req.command == CMD_EXIT)
-            exit_requested = 1;
-    }
-
-    if (client_fd >= 0) {
-        shutdown(client_fd, SHUT_RDWR);
-        close(client_fd);
-        client_fd = -1;
+        if (req.option == 13)
+            break;
     }
 
 cleanup:
-    if (client_fd >= 0)
-        close(client_fd);
-    if (server_fd >= 0)
-        close(server_fd);
-    if (fifo_fd >= 0) {
-        close(fifo_fd);
-        LogMessage stop;
-        memset(&stop, 0, sizeof(stop));
-        stop.status = -1;
-        write(STDOUT_FILENO, "", 0);
-        (void)stop;
-    }
-
-    if (mq != (mqd_t)-1)
-        mq_close(mq);
+    if (client != -1) close(client);
+    if (server != -1) close(server);
+    if (fifo != -1) close(fifo);
+    if (mq != (mqd_t)-1) mq_close(mq);
 
     mq_unlink(MQ_NAME);
     unlink(SOCKET_PATH);
     unlink(FIFO_PATH);
 
-    printf("CORE: Process stopped.\n");
+    printf("CORE: Shutting down.\n");
     return 0;
 }
